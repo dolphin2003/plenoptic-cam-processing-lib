@@ -271,4 +271,144 @@ set(PLENO_PROCESSING_SRC
 	pleno/processing/calibration/blur.cpp	
 	pleno/processing/calibration/invdistortion.cpp
 	pleno/processing/calibration/scaling.cpp
-	pleno/process
+	pleno/processing/calibration/lidarcamera.cpp
+#--Detection
+	pleno/processing/detection/mic.cpp
+	pleno/processing/detection/corners/corners.cpp
+		pleno/processing/detection/corners/caracterize.cpp
+		pleno/processing/detection/corners/optimize.cpp
+		pleno/processing/detection/corners/clusterize.cpp
+	pleno/processing/detection/bapfeatures.cpp
+#--Algorithm
+	pleno/processing/algorithms/p3p.cpp
+#--Imgprocessing
+	pleno/processing/imgproc/access.cpp
+	pleno/processing/imgproc/devignetting.cpp
+	pleno/processing/imgproc/debayering.cpp
+	pleno/processing/imgproc/interp.cpp
+	pleno/processing/imgproc/morph.cpp
+	pleno/processing/imgproc/trim.cpp
+	pleno/processing/imgproc/quality.cpp
+#--Depth
+	pleno/processing/depth/depth.cpp
+	pleno/processing/depth/filter.cpp
+	pleno/processing/depth/neighbors.cpp
+	pleno/processing/depth/pairing.cpp
+	pleno/processing/depth/search.cpp
+	pleno/processing/depth/initialization.cpp
+	pleno/processing/depth/compute.cpp
+	pleno/processing/depth/strategy.cpp
+)
+
+set(PLENO_SIMULATION_SRC
+#--Generate
+	pleno/simulation/generate/pose.cpp
+	pleno/simulation/generate/mic.cpp
+	pleno/simulation/generate/corner.cpp
+	pleno/simulation/generate/bapfeatures.cpp
+	pleno/simulation/generate/image.cpp 
+)
+
+set(PLENO_SRC
+	${PLENO_GEOMETRY_SRC}
+	${PLENO_OPTIMIZATION_SRC}
+	${PLENO_IO_SRC}
+	${PLENO_GRAPHIC_SRC}
+	${PLENO_PROCESSING_SRC}
+	${PLENO_SIMULATION_SRC}	
+)
+
+include_directories(${CMAKE_SOURCE_DIR}/pleno)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/geometry)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/optimization)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/graphic)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/io)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/processing)
+include_directories(${CMAKE_SOURCE_DIR}/pleno/simulation)
+
+file(GLOB_RECURSE PLENO_HEADERS "pleno/*.h" "pleno/*.hpp")
+
+# MacOS and Windows deal with shared/dynamic library differently. For
+# simplicity, we only authorize static library in those cases.
+if(APPLE OR WIN32)
+	add_library(pleno ${PLENO_SRC} ${PLENO_HEADERS} )
+	install(TARGETS pleno ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
+
+else(APPLE OR WIN32)
+	set(SHARED_LIBS "true" CACHE BOOL "To build shared (true) or static (false) library")
+
+	if (SHARED_LIBS)
+		add_library(pleno SHARED ${PLENO_SRC} ${PLENO_HEADERS})
+		install(TARGETS pleno
+						ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+						LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+						RUNTIME DESTINATION ${INSTALL_BIN_DIR})
+	else(SHARED_LIBS)
+		add_library(pleno ${PLENO_SRC} ${PLENO_HEADERS} )
+		install(TARGETS pleno ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
+	endif(SHARED_LIBS)
+endif(APPLE OR WIN32)
+
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/geometry)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/optimization)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/graphic)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/io)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/processing)
+target_include_directories(pleno PRIVATE ${CMAKE_SOURCE_DIR}/pleno/simulation)
+
+# link all libraries to libpleno
+add_definitions(-Wall -Wextra -Werror)
+if (NOT OPENMP_FOUND)
+	add_definitions(-Wno-unknown-pragmas)
+endif ()
+
+target_link_libraries(pleno ${EXTERNAL_LIBS} pthread)
+
+if(EXTRA_DEPS)
+	add_dependencies(pleno ${EXTRA_DEPS})
+endif(EXTRA_DEPS)
+set_target_properties(pleno PROPERTIES VERSION "${PLENO_PROJECT_VERSION}" SOVERSION 1)
+
+
+#========================= Install header ===========================
+foreach(_file ${PLENO_HEADERS})
+	get_filename_component(_dir ${_file} PATH)
+	file(RELATIVE_PATH _dir ${PROJECT_SOURCE_DIR}/pleno/ ${_dir})
+	install(FILES ${_file} DESTINATION ${INSTALL_INCLUDE_DIR}/pleno/${_dir})
+endforeach()
+
+#========================= Documentation ===========================
+
+set(GENERATE_API_DOC false CACHE BOOL "Set to true to build the documentation using Doxygen")
+
+if(GENERATE_API_DOC)
+
+	message("-- API Documentation (doxygen): enabled")
+
+	# Note: there seems to be equations in the documentation leading to the
+	# use of Latex anyway. This cause problems for user without latex...
+
+	set(DOXYFILE_LATEX "NO")
+	include(UseDoxygen.cmake)
+
+	set(DOC_INSTALL_TARGET "share/doc/${PROJECT_NAME}/api" CACHE STRING "Target where to install doxygen documentation")
+
+	add_dependencies(pleno doc)
+
+	install(FILES README.md DESTINATION share/doc/${PROJECT_NAME})
+	if (DOXYGEN_FOUND)
+		install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc/html DESTINATION ${DOC_INSTALL_TARGET})
+	endif (DOXYGEN_FOUND)
+
+else(GENERATE_API_DOC)
+
+	message("-- API Documentation (doxygen): disabled")
+
+endif(GENERATE_API_DOC)
+
+
+#=============== trigger other makefile ======================
+
+# Example programs
+#add_subdir
