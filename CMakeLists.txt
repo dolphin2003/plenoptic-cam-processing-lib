@@ -411,4 +411,101 @@ endif(GENERATE_API_DOC)
 #=============== trigger other makefile ======================
 
 # Example programs
-#add_subdir
+#add_subdirectory(examples)
+# Evaluation programs
+#add_subdirectory(evaluations)
+
+# Unit testing
+option(BUILD_TESTS "Build all tests." OFF)
+if (BUILD_TESTS)
+	enable_testing()
+	add_subdirectory(utest)
+endif()
+
+#=================== allow find_package() =========================
+#
+# the following case be used in an external project requiring libpleno:
+#  ...
+#  find_package(libpleno)
+#  include_directories(${libpleno_INCLUDE_DIRS})
+#  target_link_libraries(executableName ${libpleno_LIBRARIES})
+#  ...
+
+# 1- local build #
+
+# Register the local build in case one doesn't use "make install"
+export(PACKAGE libpleno)
+
+# Create variable for the local build tree
+get_property(CONF_INCLUDE_DIRS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+
+# Create variable with the library location
+get_target_property(PLENO_LIB pleno LOCATION)
+
+# Configure config file for local build tree
+configure_file(tools.in/libplenoConfig.cmake.in
+  "${PROJECT_BINARY_DIR}/libplenoConfig.cmake" @ONLY)
+
+# 2- installation build #
+
+# Change the include location for the case of an install location
+set(CONF_INCLUDE_DIRS ${INSTALL_INCLUDE_DIR} ${CONF_INCLUDE_DIRS} )
+
+# Change the library location for an install location
+get_filename_component(PLENO_LIB_NAME ${PLENO_LIB} NAME)
+set(PLENO_LIB ${INSTALL_LIB_DIR}/${PLENO_LIB_NAME})
+
+# We put the generated file for installation in a different repository (i.e., ./CMakeFiles/)
+configure_file(tools.in/libplenoConfig.cmake.in
+  "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/libplenoConfig.cmake" @ONLY)
+
+# The same versioning file can be used for both cases
+configure_file(tools.in/libplenoConfigVersion.cmake.in
+  "${PROJECT_BINARY_DIR}/libplenoConfigVersion.cmake" @ONLY)
+
+
+# Install the libplenoConfig.cmake and libplenoConfigVersion.cmake
+install(
+  FILES
+    "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/libplenoConfig.cmake"
+    "${PROJECT_BINARY_DIR}/libplenoConfigVersion.cmake"
+  DESTINATION "${INSTALL_CMAKE_DIR}" COMPONENT dev
+)
+
+install (
+  FILES
+    "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/libplenoConfig.cmake"
+    "${PROJECT_BINARY_DIR}/libplenoConfigVersion.cmake"
+  DESTINATION "share/${PROJECT_NAME}/cmake/"
+)
+
+#Handle pkg-config file
+set(LIBRARY_CC_ARGS "")
+foreach(_LIB IN LISTS PLENO_LIB EXTERNAL_LIBS)
+  get_filename_component(_FILE_NAME ${_LIB} NAME)
+  if(${_FILE_NAME} STREQUAL ${_LIB}) # not an absolute path
+    set(LIBRARY_CC_ARGS "${LIBRARY_CC_ARGS} -l${_LIB}")
+  else()
+    set(LIBRARY_CC_ARGS "${LIBRARY_CC_ARGS} ${_LIB}")
+  endif()
+endforeach()
+unset(_LIB)
+unset(_FILE_NAME)
+
+configure_file(tools.in/pleno.pc.in libpleno.pc @ONLY)
+configure_file(tools.in/pleno.pc.in pleno.pc @ONLY) # for backward compatibility
+install(FILES
+  ${CMAKE_BINARY_DIR}/libpleno.pc
+  ${CMAKE_BINARY_DIR}/pleno.pc # for backward compatibility
+  DESTINATION lib/pkgconfig
+)
+unset(LIBRARY_CC_ARGS)
+
+#====================== uninstall target ===============================
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools.in/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    IMMEDIATE @ONLY)
+
+add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
