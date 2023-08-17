@@ -217,4 +217,139 @@ void PlenopticCamera::init(
 	
 	mla_.pose().rotation() << 	std::cos(theta_z),	std::sin(theta_z),		0.,
 								-std::sin(theta_z),	std::cos(theta_z),		0.,
-								0.,					0.,				
+								0.,					0.,						1.;
+														
+	mla_.pose().translation()[0] = -t_x + sensor_.pose().translation()[0]; //set x coordinate
+	mla_.pose().translation()[1] = -t_y + sensor_.pose().translation()[1]; //set y coordinate
+	mla_.pose().translation()[2] = -D; //set z coordinate
+	
+	//set focal lengths
+	mla_.init(I); 
+	for (std::size_t i = 0; i < I; ++i) 
+		mla().f(i) = (1. / params_.q_prime[i]) * params_.dC * (d / 2.);  // eq.(19)
+	
+	DEBUG_VAR(D);
+	DEBUG_VAR(d);
+	DEBUG_VAR(lambda);
+	DEBUG_VAR(dC);
+	PRINT_DEBUG("theta_z=" << std::setprecision(15) << theta_z << std::setprecision(6));
+	DEBUG_VAR(t_x);
+	DEBUG_VAR(t_y);
+}
+
+
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//Helper functions
+bool PlenopticCamera::is_on_disk(const P2D& p, double radius) const {
+	return p.norm() <= radius ; //FIXME: std::sqrt(2.)
+}
+
+bool PlenopticCamera::is_inside_mi(const P2D& p, std::size_t k, std::size_t l) const {
+	const P2D idx = ml2mi(k,l);
+	const P2D c = mia().nodeInWorld(idx[0], idx[1]);
+		
+	return (p - c).norm() <= (mia().radius() - mia().border());
+}
+
+bool PlenopticCamera::hit_main_lens(const Ray3D& ray) const {
+	// compute the intersection point between the ray and the lens
+	P3D p = line_plane_intersection(main_lens().plane(), ray);
+	// Testing if the ray hit the lens
+	return is_on_disk(p.head<2>(), main_lens().radius());
+}
+
+//Helper projection function	
+bool PlenopticCamera::project_through_main_lens(const P3D& p3d_cam, P3D& projection) const
+{
+	bool is_projected = true;
+    
+	// the 3d point projected through the main lens
+    projection = to_coordinate_system_of(main_lens().pose(), p3d_cam); // THINLENS
+    is_projected = main_lens().project(projection, projection);
+
+    // applying main_lens distortions
+    main_lens_distortions().apply(projection); // THINLENS
+	
+    // change to current CAMERA coordinate system
+    projection = from_coordinate_system_of(main_lens().pose(), projection); // CAMERA
+    
+    return is_projected;
+}
+
+bool PlenopticCamera::project_through_micro_lens(const P3D& p, std::size_t k, std::size_t l, P2D& projection) const
+{
+	bool is_projected = true;
+	
+	// computing a ray linking the micro-lens center and p
+    const P3D Ckl_cam = mla().nodeInWorld(k,l); //from_coordinate_system_of(mla().pose(), mla().node(k,l)); //
+    Ray3D ray;
+    ray.config(Ckl_cam, p); // CAMERA
+
+    //FIXME: only chief ray, testing if the ray hits the main lens
+    //is_projected = hit_main_lens(to_coordinate_system_of(main_lens().pose(), ray)); 
+    	
+    // computing intersection between sensor and ray
+    P3D p_sensor = line_plane_intersection(sensor().planeInWorld(), ray); // CAMERA
+    p_sensor = to_coordinate_system_of(sensor().pose(), p_sensor); // SENSOR
+
+	projection = sensor().metric2pxl(p_sensor).head<2>(); // IMAGE XY   	
+	xy2uv(projection); //IMAGE UV
+	
+	// check if projection is within the micro-image (k,l)
+	is_projected = is_inside_mi(projection, k, l);
+	
+	return (is_projected and hit_the_sensor(projection));
+}	
+
+bool PlenopticCamera::project_radius_through_micro_lens(
+	const P3D& p, std::size_t k, std::size_t l, double& radius
+) const
+{
+	if (not focused()) 
+	{
+		PRINT_ERR("PlenopticCamera::project_radius_through_micro_lens: Can't get radius when MLA is acting as a pinhole array.");
+		return false;
+	}
+	
+    // computing radius
+//const P3D Ckl_mla 	= mla().node(k,l);
+//const P3D p_mla 	= to_coordinate_system_of(mla().pose(), p); // MLA
+//const P3D p_kl_mla 	= (p_mla - Ckl_mla); // NODE(K,L)
+//const double a_ = (p_kl_mla.z()); //distance according to the tilted direction
+    
+    const double a_ = p.z() + D(k,l); //orthogonal distance center-proj
+	const double d_ = d(k, l); //orthogonal distance center-sensor
+	const double D_ = D(k, l); //orthogonal distance center-lens
+	const double f_ = mla().f(k,l); //focal length
+ 
+    const double r = params().dc * (D_ / (D_ + d_)) * (d_ / 2.) * ((1. / f_) - (1. / a_) - (1. / d_)); // eq.(12)
+    
+    radius = sensor().metric2pxl(r);
+    
+    return true;
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+bool PlenopticCamera::project(const P3D& /*p3d_cam*/, P2D& /*pixel*/) const
+{
+	PRINT_WARN("PlenopticCamera::project: No micro-lens' index specified.");
+	return false;
+}
+    
+bool PlenopticCamera::project(
+	const P3D& p3d_cam,
+    std::size_t k, std::size_t l,
+    P3D& bap
+) const
+{
+	bap.setZero();
+	
+	P3D p; p.setZero();
+    const bool is_projected_through_main_lens = project_through_main_lens(p3d_cam, p);
+    
+    P2D pixel; pixel.setZero()
