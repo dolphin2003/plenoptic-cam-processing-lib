@@ -352,4 +352,195 @@ bool PlenopticCamera::project(
 	P3D p; p.setZero();
     const bool is_projected_through_main_lens = project_through_main_lens(p3d_cam, p);
     
-    P2D pixel; pixel.setZero()
+    P2D pixel; pixel.setZero();
+	const bool is_projected_through_micro_lens = project_through_micro_lens(p, k, l, pixel);	
+
+	bap.head<2>() = pixel;
+	
+	if (not focused()) 
+	{
+		PRINT_ERR("PlenopticCamera::project: Can't get radius when MLA is acting as a pinholes array.");
+		return false;
+	}
+	
+    double radius = 0.0;
+    const bool is_radius_projected = project_radius_through_micro_lens(p, k, l, radius);
+    
+    bap[2]		= radius;
+
+    return is_projected_through_main_lens and is_radius_projected and is_projected_through_micro_lens;
+}
+
+bool PlenopticCamera::project(
+	const P3D& p3d_cam,
+    std::size_t k, std::size_t l,
+    P2D& pixel
+) const
+{
+	pixel.setZero();
+	
+	P3D p; p.setZero();
+	const bool is_projected_through_main_lens = project_through_main_lens(p3d_cam, p);
+	const bool is_projected_through_micro_lens = project_through_micro_lens(p, k, l, pixel);		
+	   
+    return is_projected_through_main_lens and is_projected_through_micro_lens;
+}
+
+bool PlenopticCamera::project(
+	const P3D& p3d_cam,
+    std::size_t k, std::size_t l,
+    double& rho
+) const
+{
+	if (not focused()) 
+	{
+		PRINT_ERR("PlenopticCamera::project: Can't get radius when MLA is acting as a pinholes array.");
+		return false;
+	}
+	
+	rho = 0.0;
+	
+	P3D p; p.setZero();
+    const bool is_projected_through_main_lens = project_through_main_lens(p3d_cam, p);
+    const bool is_radius_projected = project_radius_through_micro_lens(p, k, l, rho);
+	
+	return is_projected_through_main_lens and is_radius_projected;
+}
+
+
+bool PlenopticCamera::project(
+	const P3D& p3d_cam,
+    CBObservations& observations
+) const
+{
+	observations.clear();
+	observations.reserve(mla().nodeNbr());
+	
+	for (std::size_t k = 0; k < mla().width(); ++k) //iterate through columns //x-axis
+    {
+    	for (std::size_t l = 0; l < mla().height(); ++l) //iterate through lines //y-axis
+		{
+			P2D corner; corner.setZero();
+			if (project(p3d_cam, k, l, corner))
+			{
+				observations.emplace_back(
+					CBObservation{
+						int(k), int(l), 
+						corner[0], corner[1]
+					}
+				);			
+			}
+		}
+	}
+	
+	observations.shrink_to_fit();
+	return (observations.size() > 0u);
+}
+
+bool PlenopticCamera::project(
+	const P3D& p3d_cam,
+    BAPObservations& observations
+) const
+{
+	if (not focused()) 
+	{
+		PRINT_ERR("PlenopticCamera::project: Can't get radius when MLA is acting as a pinholes array.");
+		return false;
+	}
+	
+	observations.clear();
+	observations.reserve(mla().nodeNbr());
+
+	for (std::size_t k = 0; k < mla().width(); ++k) //iterate through columns //x-axis
+    {
+    	for (std::size_t l = 0; l < mla().height(); ++l) //iterate through lines //y-axis
+		{
+			P3D bap; bap.setZero();
+			if (project(p3d_cam, k, l, bap))
+			{
+				observations.emplace_back(
+					BAPObservation{
+						int(k), int(l), 
+						bap[0], bap[1], bap[2], /* u, v, rho */
+					}
+				);			
+			}
+		}
+	}
+	
+	observations.shrink_to_fit();
+	return (observations.size() > 0u);
+}
+
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+bool PlenopticCamera::raytrace(const P2D& /*pixel*/, Ray3D& /*ray*/) const
+{
+	PRINT_WARN("PlenopticCamera::raytrace: No micro-lens' index specified.");
+	return false;
+}	
+
+
+bool PlenopticCamera::raytrace(
+	const P2D& pixel, std::size_t k, std::size_t l, Ray3D& ray
+) const
+{	
+	//get pixel in camera coordinate	
+	P2D pix = pixel; //IMAGE UV
+	uv2xy(pix); //IMAGE XY		
+	
+	P3D p{pix[0], pix[1], 0.0};
+	p = sensor().pxl2metric(p); // SENSOR
+	p = from_coordinate_system_of(sensor().pose(), p); // CAMERA
+	
+	//get ml center
+	const P3D ckl = mla().nodeInWorld(k,l); //CAMERA
+	
+	//configure chief ray from pixel to ml center
+	Ray3D r; r.config(p, ckl); // CAMERA
+	
+	//get p'
+	P3D p_prime;
+	
+	if (focused()) 
+	{
+		//get focal plane
+		const double f = mla().f(k, l); //focal
+		const double ai = (f * d()) / (d() - f); //focus distance (in MLA space)
+		
+		const auto plane = plane_from_3_points(
+				from_coordinate_system_of(mla().pose(), P3D{0., 0., ai}),
+				from_coordinate_system_of(mla().pose(), P3D{1., 0., ai}),
+				from_coordinate_system_of(mla().pose(), P3D{0., 1., ai})
+		);
+		p_prime = line_plane_intersection(plane, r); // CAMERA
+	}
+	else //unfocused and pinholes array
+	{
+		p_prime = p;
+	}
+	
+	//unapply distortions
+	P3D p_prime_d = p_prime;
+	main_lens_invdistortions().apply(p_prime_d);
+	
+	//get main lens plane 
+	const auto mlplane = main_lens().planeInWorld();
+	
+	r.config(p_prime, ckl); // CAMERA
+	const P3D p_onlens = line_plane_intersection(mlplane, r);
+	
+	//re-configure ray
+	r.config(p_prime_d, p_onlens);		
+	
+	const double cosTheta = 1.; //r.direction().z(); //normalized()
+	r.color().a = cosTheta * cosTheta * cosTheta * cosTheta;
+		
+//raytrace in main lens
+	return main_lens().raytrace(r, ray);
+}
+
+bool PlenopticCamera::raytrace(
+	const P2D& pixel, std::size_t k, std:
