@@ -543,4 +543,169 @@ bool PlenopticCamera::raytrace(
 }
 
 bool PlenopticCamera::raytrace(
-	const P2D& pixel, std::size_t k, std:
+	const P2D& pixel, std::size_t k, std::size_t l, std::size_t n, Rays3D& rays
+) const
+{	
+	rays.reserve(n+1);
+
+	//get pixel in camera coordinate	
+	P2D pix = pixel; //IMAGE UV
+	uv2xy(pix); //IMAGE XY		
+	
+	P3D p{pix[0], pix[1], 0.0};
+	p = sensor().pxl2metric(p); // SENSOR
+	p = from_coordinate_system_of(sensor().pose(), p); // CAMERA
+	
+	//get ml center
+	const P3D ckl_mla = mla().node(k,l); //MLA
+	const P3D ckl = mla().nodeInWorld(k,l); //CAMERA
+
+	//configure chief ray from pixel to ml center
+	Ray3D r; r.config(p, ckl); // CAMERA
+	
+	//get p'
+	P3D p_prime;
+	if (focused() and not unfocused()) 
+	{
+		//get focal plane
+		const double f = mla().f(k, l); //focal
+		const double ai = (f * d()) / (d() - f); //focus distance (in MLA space)
+		
+		const auto plane = plane_from_3_points(
+				from_coordinate_system_of(mla().pose(), P3D{0., 0., ai}),
+				from_coordinate_system_of(mla().pose(), P3D{1., 0., ai}),
+				from_coordinate_system_of(mla().pose(), P3D{0., 1., ai})
+		);
+		p_prime = line_plane_intersection(plane, r); // CAMERA
+	}
+	else //raytrace only from pixel
+	{
+		p_prime = p;
+	}
+	
+	//unapply distortions
+	P3D p_prime_d = p_prime;
+	main_lens_invdistortions().apply(p_prime_d);
+	
+	const auto mlplane = main_lens().planeInWorld();
+	
+	//raytrace chief ray
+	{	
+		r.config(p_prime, ckl); // CAMERA
+		const P3D p_onlens = line_plane_intersection(mlplane, r);
+		r.config(p_prime_d, p_onlens);		
+		
+		const double cosTheta = 1.; //r.direction().z(); //normalized()
+		r.color().a = cosTheta * cosTheta * cosTheta * cosTheta;
+		
+		Ray ray;
+		if (main_lens().raytrace(r, ray))
+		{		 	
+		 	rays.emplace_back(ray);
+		}
+	}
+	
+	//raytrace rays on lens
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		// Get point on lens
+		const P2D c_ondisk = concentric_sample_disk(ckl_mla.head<2>(), mla().radius());
+		P3D c = P3D{c_ondisk.x(), c_ondisk.y(), 0.}; // MLA
+		c = from_coordinate_system_of(mla().pose(), c); // CAMERA
+		
+		if (not unfocused())
+		{
+			r.config(p_prime, c); // CAMERA
+			const P3D p_onlens = line_plane_intersection(mlplane, r);
+					
+			r.config(p_prime_d, p_onlens);		
+		}
+		else // unfocused, generate parallel rays
+		{
+			//change origin, keep direction of principal ray
+			r.config(p_prime, ckl); // CAMERA
+			r.origin() = c; //camera
+			
+			const P3D p_onlens = line_plane_intersection(mlplane, r);
+					
+			r.config(c, p_onlens);
+		}		
+		
+		const double cosTheta = 1.; //r.direction().z(); //normalized()
+		r.color().a = cosTheta * cosTheta * cosTheta * cosTheta;
+					
+		//raytrace in main lens
+		Ray ray;
+		if (main_lens().raytrace(r, ray))
+		{
+			rays.emplace_back(ray);
+		}
+	}
+	
+	rays.shrink_to_fit();
+	
+	return (rays.size() > 0);
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//Space convertion (obj, mla, virtual)
+double PlenopticCamera::v2mla(double x, std::size_t k, std::size_t l) const { return -x * d(k,l); }
+double PlenopticCamera::mla2v(double x, std::size_t k, std::size_t l) const { return -x / d(k,l); }
+
+double PlenopticCamera::obj2mla(double x, std::size_t k, std::size_t l) const //{ return D(k,l) - (focal() * x) / (x - focal()); }
+{
+	const double z = - (focal() * x) / (x - focal());
+	
+	//apply distortions 
+	P3D delta = mla().nodeInWorld(k,l); //CAMERA
+	delta.z() = z;
+	
+	main_lens_distortions().apply_depth(delta);
+	
+	return D(k,l) + (z + delta.z());  
+}
+
+double PlenopticCamera::mla2obj(double x, std::size_t k, std::size_t l) const //{ return (focal() * (D(k,l)-x)) / (D(k,l) -x - focal()); }
+{ 
+	const double z = x - D(k,l);
+	
+	//unapply distortions
+	P3D delta = mla().nodeInWorld(k,l); //CAMERA
+	delta.z() = z;
+	main_lens_invdistortions().apply_depth(delta);	
+	
+	return scaling()(
+		(focal() * (z + delta.z())) / (z + delta.z() + focal())
+	); 
+}
+
+double PlenopticCamera::v2obj(double x, std::size_t k, std::size_t l) const { return mla2obj(v2mla(x, k, l), k, l); }
+double PlenopticCamera::obj2v(double x, std::size_t k, std::size_t l) const { return mla2v(obj2mla(x, k, l), k, l); }
+	
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//Space convertion	(Micro-Images Space / Micro-Lenses Space)
+void PlenopticCamera::mi2ml(P2D& pij) const 
+{ 
+	pij[0] = mla().width()-1 - pij[0]; pij[1] = mla().height()-1 - pij[1];
+}
+void PlenopticCamera::ml2mi(P2D& pkl) const 
+{ 
+	mi2ml(pkl);
+}
+
+void PlenopticCamera::mi2ml(double& index) const 
+{ 
+	index = mla().nodeNbr()-1 - index;
+}
+void PlenopticCamera::ml2mi(double& index) const 
+{ 
+	mi2ml(index);
+}
+
+P2D PlenopticCamera::mi2ml(std::size_t k, std::size_t l) const
+{
+	P2D pij{
