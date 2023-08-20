@@ -849,4 +849,111 @@ void save(std::string path, const PlenopticCamera& pcm)
     config.sensor().pose().rotation() = pcm.sensor().pose().rotation();
     config.sensor().pose().translation() = pcm.sensor().pose().translation();
     config.sensor().width() = pcm.sensor().width();
-    co
+    config.sensor().height() = pcm.sensor().height();
+    config.sensor().scale() = pcm.sensor().scale();
+    
+     // Configuring the MicroImagesArray
+    config.mia().mesh().pose().rotation() = pcm.mia().pose().rotation();
+    config.mia().mesh().pose().translation() = pcm.mia().pose().translation();
+    config.mia().mesh().width() = pcm.mia().width();
+    config.mia().mesh().height() = pcm.mia().height();
+    config.mia().mesh().pitch() = pcm.mia().pitch();
+    config.mia().mesh().geometry() = pcm.mia().geometry();
+    
+     // Configuring the MicroLensesArray
+    config.mla().mesh().pose().rotation() = pcm.mla().pose().rotation();
+    config.mla().mesh().pose().translation() = pcm.mla().pose().translation();
+    config.mla().mesh().width() = pcm.mla().width();
+    config.mla().mesh().height() = pcm.mla().height();
+    config.mla().mesh().pitch() = pcm.mla().pitch();
+    config.mla().mesh().geometry() = pcm.mla().geometry();
+    
+    config.mla().focal_lengths().resize(pcm.I());
+    for (std::size_t i = 0; i < pcm.I(); ++i) config.mla().focal_lengths()[i] = pcm.mla().f(i);
+
+	// Configuring the Main Lens
+    config.main_lens().pose().rotation() = pcm.main_lens().pose().rotation();
+    config.main_lens().pose().translation() = pcm.main_lens().pose().translation();
+    config.main_lens().f() = pcm.main_lens().focal();
+    config.main_lens().aperture() = pcm.main_lens().aperture();
+    config.main_lens().diameter() = pcm.main_lens().diameter();
+
+    // Configuring the Distortions
+    config.distortions().radial() = pcm.main_lens_distortions().radial();
+    config.distortions().tangential() = pcm.main_lens_distortions().tangential();
+    config.distortions().depth() = pcm.main_lens_distortions().depth();
+    config.distortions().model() = pcm.main_lens_distortions().model();
+    
+    config.distortions_inverse().radial() = pcm.main_lens_invdistortions().radial();
+    config.distortions_inverse().tangential() = pcm.main_lens_invdistortions().tangential();
+    config.distortions_inverse().depth() = pcm.main_lens_invdistortions().depth();
+    config.distortions_inverse().model() = pcm.main_lens_invdistortions().model();
+    
+    // Configuring the Focus distance
+    config.dist_focus() = pcm.distance_focus();
+    
+    // Configuring the scaling function
+    config.scaling().a() = pcm.scaling().a;
+    config.scaling().b() = pcm.scaling().b;
+    config.scaling().c() = pcm.scaling().c;
+    
+    // Configuring additional information
+    config.mode() 	= pcm.mode();
+    config.d() 		= pcm.d();
+    config.D() 		= pcm.D();
+    config.pp() 	= pcm.pp();
+    config.Rxyz()	= pcm.mla().pose().rotation().eulerAngles(0,1,2);
+    
+    if (pcm.multifocus())
+    {
+    	config.focal_planes().resize(pcm.I());
+    	for (std::size_t i = 0; i < pcm.I(); ++i) config.focal_planes()[i] = pcm.focal_plane(i);
+    }
+    else
+    {
+    	config.focal_planes().push_back(pcm.focal_plane(0));
+    }
+
+	v::save(path, config);
+}
+
+void load(std::string path, PlenopticCamera& pcm)
+{
+	PlenopticCameraConfig config;
+	v::load(path, config);
+	
+	// Configuring the Sensor
+    pcm.sensor().pose().rotation() = config.sensor().pose().rotation(); 
+    pcm.sensor().pose().translation() = config.sensor().pose().translation(); 
+    pcm.sensor().width() = config.sensor().width(); 
+    pcm.sensor().height() = config.sensor().height(); 
+    pcm.sensor().scale() = config.sensor().scale(); 
+    
+     // Configuring the MicroImagesArray
+    pcm.mia() = MicroImagesArray{config.mia()};
+    
+     // Configuring the MicroLensesArray
+    pcm.mla() = MicroLensesArray{config.mla()};
+    
+	// Configuring the Main Lens
+    pcm.main_lens().pose().rotation() = config.main_lens().pose().rotation(); 
+    pcm.main_lens().pose().translation() = config.main_lens().pose().translation(); 
+    pcm.main_lens().focal() = config.main_lens().f(); 
+    pcm.main_lens().aperture() = config.main_lens().aperture();  
+
+    // Configuring the Distortions
+    pcm.main_lens_distortions().radial() = config.distortions().radial(); 
+    pcm.main_lens_distortions().tangential() = config.distortions().tangential(); 
+    pcm.main_lens_distortions().depth() = config.distortions().depth(); 
+    pcm.main_lens_distortions().model() = Distortions::DepthDistortionModel(config.distortions().model()); 
+    
+    pcm.main_lens_invdistortions().radial() = config.distortions_inverse().radial(); 
+    pcm.main_lens_invdistortions().tangential() = config.distortions_inverse().tangential(); 
+    pcm.main_lens_invdistortions().depth() = config.distortions_inverse().depth(); 
+    pcm.main_lens_invdistortions().model() = Distortions::DepthDistortionModel(config.distortions_inverse().model()); 
+    
+    // Configuring the Focus distance
+    pcm.distance_focus() = config.dist_focus();
+    
+    // Configuring the scaling function
+    pcm.scaling().a 
