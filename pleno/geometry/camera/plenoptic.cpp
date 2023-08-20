@@ -708,4 +708,145 @@ void PlenopticCamera::ml2mi(double& index) const
 
 P2D PlenopticCamera::mi2ml(std::size_t k, std::size_t l) const
 {
-	P2D pij{
+	P2D pij{k, l}; //MI
+	mi2ml(pij); //ML
+	return pij;
+}
+
+P2D PlenopticCamera::ml2mi(std::size_t k, std::size_t l) const
+{
+	return mi2ml(k,l);
+}
+
+template<typename Observations>
+void PlenopticCamera::mi2ml(Observations& obs) const 
+{
+	std::for_each(
+		obs.begin(), obs.end(),
+		[*this](auto& ob) { 
+			//MI to ML
+			P2D pij = mi2ml(ob.k, ob.l);
+			
+			ob.k = pij[0];
+			ob.l = pij[1];
+		}	
+	);
+}
+
+template void PlenopticCamera::mi2ml(MICObservations& obs) const;
+template void PlenopticCamera::mi2ml(CBObservations& obs) const;
+template void PlenopticCamera::mi2ml(BAPObservations& obs) const;
+template void PlenopticCamera::mi2ml(MIObservations& obs) const;
+
+template<typename Observations>
+void PlenopticCamera::ml2mi(Observations& obs) const 
+{
+	std::for_each(
+		obs.begin(), obs.end(),
+		[*this](auto& ob) { 
+			//ML to MI
+			P2D pkl = ml2mi(ob.k, ob.l);
+			
+			ob.k = pkl[0];
+			ob.l = pkl[1];
+		}	
+	);
+}
+
+template void PlenopticCamera::ml2mi(MICObservations& obs) const;
+template void PlenopticCamera::ml2mi(CBObservations& obs) const;
+template void PlenopticCamera::ml2mi(BAPObservations& obs) const;
+template void PlenopticCamera::ml2mi(MIObservations& obs) const;
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+P2D PlenopticCamera::disparity(
+	std::size_t k, std::size_t l, std::size_t nk, std::size_t nl, double v
+) const
+{
+	//mi k,l indexes are in mi space, convert to mla space to access micro-lenses
+	const P2D idxi = mi2ml(k, l);
+	const P2D idxj = mi2ml(nk, nl); 
+	
+#if 1 //TRUE DISPARITY	
+	const P2D deltac = (mia().nodeInWorld(k,l) - mia().nodeInWorld(nk, nl));
+	
+	const double D_ = (D(idxi(0), idxi(1)) + D(idxj(0), idxj(1))) / 2.;
+	const double d_ = (d(idxi(0), idxi(1)) + d(idxj(0), idxj(1))) / 2.;
+	
+	const double lambda = D_ / (D_ + d_);
+	
+	const P2D disp = (deltac) * (
+		((1. - lambda) * v + lambda) / (v)
+	); 
+#else
+	const P3D mli = mla().node(idxi(0), idxi(1)); 
+	const P3D mlj = mla().node(idxj(0), idxj(1));
+
+	const P2D deltaC = (mlj - mli).head<2>();
+	
+	const P2D disp = (deltaC) / (v * sensor().scale());
+#endif
+	return disp; //in pixel
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+std::ostream& operator<<(std::ostream& os, const PlenopticCamera::Mode& mode)
+{
+	switch (mode)
+	{
+		case PlenopticCamera::Mode::Unfocused: os << "Unfocused (f = d)"; break;
+		case PlenopticCamera::Mode::Keplerian: os << "Keplerian (f < d --> F < D)"; break;
+		case PlenopticCamera::Mode::Galilean: os << "Galilean (f > d)"; break;
+	}
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const PlenopticCamera& pcm)
+{	
+	os 	<< "Plenoptic Camera:" << std::endl
+		<< "\tinternal configuration = " << pcm.mode() << "," << std::endl
+		<< "\th = " << pcm.distance_focus() << "," << std::endl
+		<< "\tI = " << pcm.I() << "," << std::endl
+		<< "\tscaling = " << pcm.scaling().a << " * z² + " << pcm.scaling().b <<" * z + "<< pcm.scaling().c << "," << std::endl
+		<< "\tpose = {" << std::endl << pcm.pose() << "}," << std::endl
+		<< "\tsensor = {" << std::endl << pcm.sensor() << "}," << std::endl
+		<< "\tmia = {" << std::endl << pcm.mia() << "}," << std::endl
+		<< "\tmla = {" << std::endl << pcm.mla() << "}," << std::endl
+		<< "\tlens = {" << std::endl << pcm.main_lens() << "}," << std::endl
+		<< "\tdistortions = {" << std::endl << pcm.main_lens_distortions() << "}," << std::endl
+		<< "\tinvdistortions = {" << std::endl << pcm.main_lens_invdistortions() << "}," << std::endl
+		<< "\td = " << pcm.d() << "," << std::endl
+		<< "\tD = " << pcm.D() << "," << std::endl
+		<< "\tprincipal point = {" << pcm.pp().transpose() << "}," << std::endl;
+	
+	if (pcm.multifocus())
+	{
+		os << "\tf = {"; 
+		std::size_t i = 0; for(; i < pcm.I()-1; ++i) os << pcm.mla().f(i) <<", ";
+		os << pcm.mla().f(i) << "}," << std::endl;
+		
+		os << "\tfocal_plane = {"; 
+		i = 0; for(; i < pcm.I()-1; ++i) os << pcm.focal_plane(i) <<" ("<< pcm.obj2v(pcm.focal_plane(i)) << "), ";
+		os << pcm.focal_plane(i) <<" ("<< pcm.obj2v(pcm.focal_plane(i)) << ")}" << std::endl;
+	}
+	else
+	{
+		os << "\tfocal_plane = " << pcm.focal_plane(0) <<" ("<< pcm.obj2v(pcm.focal_plane(0)) << ")";
+	}
+		
+	return os;
+}
+
+void save(std::string path, const PlenopticCamera& pcm)
+{
+	PlenopticCameraConfig config;
+	
+	// Configuring the Sensor
+    config.sensor().pose().rotation() = pcm.sensor().pose().rotation();
+    config.sensor().pose().translation() = pcm.sensor().pose().translation();
+    config.sensor().width() = pcm.sensor().width();
+    co
