@@ -149,4 +149,17 @@ public:
 protected:
 //Helper functions
 	bool is_on_disk(const P2D& p, double disk_diameter) const;
-	bool is_inside_mi
+	bool is_inside_mi(const P2D& p, std::size_t k, std::size_t l) const;
+    bool hit_main_lens(const Ray3D& ray) const;
+    
+//Helper projection function	
+	bool project_through_main_lens(const P3D& p3d_cam, P3D& projection) const;
+	bool project_through_micro_lens(const P3D& p, std::size_t k, std::size_t l, P2D& projection) const;
+	bool project_radius_through_micro_lens(const P3D& p, std::size_t k, std::size_t l, double& radius) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const PlenopticCamera::Mode& mode);
+std::ostream& operator<<(std::ostream& os, const PlenopticCamera& pcm);
+
+void load(std::string path, PlenopticCamera& pcm);
+void save(std::string path, const PlenopticCamera& pcm);
