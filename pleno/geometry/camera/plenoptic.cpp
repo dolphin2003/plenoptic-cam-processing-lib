@@ -956,4 +956,9 @@ void load(std::string path, PlenopticCamera& pcm)
     pcm.distance_focus() = config.dist_focus();
     
     // Configuring the scaling function
-    pcm.scaling().a 
+    pcm.scaling().a = config.scaling().a();
+    pcm.scaling().b = config.scaling().b();
+    pcm.scaling().c = config.scaling().c();
+}
+
+
