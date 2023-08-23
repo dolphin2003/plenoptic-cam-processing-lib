@@ -194,3 +194,88 @@ std::pair<double, double> PointCloud::minmax() const
 double PointCloud::min() const { return minmax().first; }
 double PointCloud::max() const { return minmax().second; }
 
+//transform
+void PointCloud::transform(const Pose& pose) 
+{
+	//for each point apply transformation
+	for(P3D& p : features())
+	{
+		const P3D temp = to_coordinate_system_of(pose, p);
+		p = temp;		
+	}
+}
+
+//distance
+double PointCloud::distance(const PointCloud& reading, DistanceType dt, double threshold/* mm */) const 
+{
+	const int sz = static_cast<int>(size());
+	double dist = 0.;
+	double N = 0.;
+	auto acc = [](const P3D& p) -> const P3D& { return p; };
+	
+	if (dt == DistanceType::Chamfer)
+	{
+	#pragma omp parallel for reduction(+:dist) reduction(+:N)		
+		for(int i = 0 ; i < sz; ++i)
+		{	
+			const P3D& p = feature(i);
+			const P3D q = NNS::find(reading, p, acc);
+			const double d = (p - q).squaredNorm();
+	
+			if (d < threshold) { dist += d; ++N; } 			
+		}
+		
+		dist /= (N + 1e-12);	
+	}
+	else if (dt == DistanceType::Hausdorff)
+	{	
+	#pragma omp parallel for 
+		for(int i = 0 ; i < sz; ++i)
+		{	
+			const P3D& p = feature(i);
+			const P3D q = NNS::find(reading, p, acc);
+			const double d = (p - q).squaredNorm();	
+			
+			#pragma omp critical
+			if (d < threshold and d > dist) dist = d;		
+		}	
+	}
+	else if (dt == DistanceType::Euclidean)
+	{
+	#pragma omp parallel for reduction(+:dist) reduction(+:N)		
+		for(int i = 0 ; i < sz; ++i)
+		{	
+			const P3D& p = feature(i);
+			const P3D q = NNS::find(reading, p, acc);
+			const double d = (p - q).squaredNorm();
+	
+			if (d < threshold) { dist += d; ++N; } 			
+		}
+		
+		dist /= (N + 1e-12);
+		dist = std::sqrt(dist);
+	}
+	
+	return dist;			
+}
+
+//******************************************************************************
+//******************************************************************************
+void save(v::OutputArchive& archive, const PointCloud& pc)
+{
+	archive
+		("features", pc.features_)
+		("pixels", pc.pixels_)
+		("colors", pc.colors_);
+}
+
+void load(v::InputArchive& archive, PointCloud& pc)
+{
+	archive
+		("features", pc.features_)
+		("pixels", pc.pixels_)
+		("colors", pc.colors_);
+}
+
+//******************************************************************************
+//******************************************************************************
