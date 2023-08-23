@@ -50,4 +50,147 @@ PointCloud::PointCloud(const DepthMap& dm, const PlenopticCamera& model, const I
 	{
 		for (std::size_t l = 0; l < mia.height(); ++l)
 		{	
-			if (mdm.is_coarse_map() and mdm.depth(k
+			if (mdm.is_coarse_map() and mdm.depth(k, l) == DepthInfo::NO_DEPTH) continue;
+			
+			const auto c = mia.nodeInWorld(k,l);
+			
+			const int umin = std::max(static_cast<int>(c[0] - R), 0);
+			const int umax = std::min(static_cast<int>(c[0] + R), W);
+			const int vmin = std::max(static_cast<int>(c[1] - R), 0);
+			const int vmax = std::min(static_cast<int>(c[1] + R), H);
+			
+			//for each pixel
+			for (int u = umin; u < umax; ++u) //col
+			{
+				for (int v = vmin; v < vmax; ++v) //row
+				{
+					//get depth
+					const double depth = mdm.is_refined_map() ? mdm.depth(u,v) : mdm.depth(k,l);
+					if (depth == DepthInfo::NO_DEPTH) continue;
+									
+					//get center pixel to raytrace from
+					const P2D pixel = {u+0.5, v+0.5};
+					if ((pixel - c).norm() > R) continue; //out of distance
+					
+					const P2D kl = model.mi2ml(k, l); //get ml indexes
+					
+					//raytrace
+					Ray3D ray; //in CAMERA frame
+					if (model.raytrace(pixel, kl[0], kl[1], ray))
+					{
+						//get depth plane
+						PlaneCoefficients plane; plane << 0., 0., 1., -depth;
+						
+						//get position
+						const P3D point = line_plane_intersection(plane, ray);
+						
+						//get color
+						const RGBA color = [&]() -> RGBA {
+							if (image.type() == CV_8UC3)
+							{
+								const auto bgr = image.at<cv::Vec3b>(v,u); //(row,col) access
+								return RGBA{
+									static_cast<double>(bgr[2]), 
+									static_cast<double>(bgr[1]), 
+									static_cast<double>(bgr[0]), 
+									255.
+								}; 
+							}
+							else if (image.type() == CV_8UC1)
+							{
+								const double g = static_cast<double>(image.at<uchar>(v,u)); //(row,col) access
+								return RGBA{g, g, g, 255.}; 
+							}
+							return RGBA{};							
+						}();
+						
+						//add to pointcloud
+						add(point, pixel, color);					
+					}
+				}
+			}
+		}
+	}
+	
+	shrink();
+}
+
+//******************************************************************************
+//******************************************************************************	
+//accessors
+P3DS& PointCloud::features() { return features_; }
+const P3DS& PointCloud::features() const { return features_; }
+
+P3D& PointCloud::feature(std::size_t i) { assert(i < features().size()); return features()[i]; }
+const P3D& PointCloud::feature(std::size_t i) const { assert(i < features().size()); return features()[i]; }
+
+P2DS& PointCloud::pixels() { return pixels_; }
+const P2DS& PointCloud::pixels() const { return pixels_; }
+
+P2D& PointCloud::pixel(std::size_t i) { assert(i < pixels().size()); return pixels()[i]; }
+const P2D& PointCloud::pixel(std::size_t i) const { assert(i < pixels().size()); return pixels()[i]; }
+
+Colors& PointCloud::colors() { return colors_; }
+const Colors& PointCloud::colors() const { return colors_; }
+
+RGBA& PointCloud::color(std::size_t i) { assert(i < colors().size()); return colors()[i]; }
+const RGBA& PointCloud::color(std::size_t i) const { assert(i < colors().size()); return colors()[i]; }
+
+std::size_t PointCloud::size() const { return features().size(); }
+std::size_t PointCloud::nbPoints() const { return size(); }
+std::size_t PointCloud::capacity() const { return features().capacity(); }
+
+//modifiers	
+std::size_t PointCloud::shrink() { features().shrink_to_fit(); pixels().shrink_to_fit(); colors().shrink_to_fit(); return size(); }
+std::size_t PointCloud::reserve(std::size_t sz) { features().reserve(sz); pixels().reserve(sz); colors().reserve(sz); return capacity(); }
+std::size_t PointCloud::resize(std::size_t sz) { features().resize(sz); pixels().resize(sz); colors().resize(sz); return size(); }
+
+//add
+void PointCloud::add(const P3D& data, const P2D& pix, const RGBA& col) 
+{
+	features().emplace_back(data);
+	pixels().emplace_back(pix);
+	colors().emplace_back(col);
+} 
+
+//swap	
+void PointCloud::swap(std::size_t i, std::size_t j) 
+{
+	assert(i < size()); assert(j < size());
+	
+	std::iter_swap(features().begin()+i, 	features().begin()+j);
+	std::iter_swap(pixels().begin()+i, 		pixels().begin()+j);
+	std::iter_swap(colors().begin()+i, 		colors().begin()+j);
+}	
+
+//remove
+void PointCloud::remove(std::size_t i) 
+{
+	assert(i < size());
+	
+	std::iter_swap(features().begin()+i, 	features().end()-1);
+	std::iter_swap(pixels().begin()+i, 		pixels().end()-1);
+	std::iter_swap(colors().begin()+i, 		colors().end()-1);
+	
+	features().pop_back();
+	pixels().pop_back();
+	colors().pop_back();		
+}
+
+//const_iterator		
+P3DS::const_iterator PointCloud::begin() const { return features_.cbegin(); }
+P3DS::const_iterator PointCloud::end() const { return features_.cend(); }		
+
+//min/max
+std::pair<double, double> PointCloud::minmax() const
+{
+	const auto [min, max] = std::minmax_element(
+		std::begin(*this), std::end(*this), 
+		[](const P3D& p, const P3D& q) -> bool { return p.z() < q.z(); }
+	);
+	return {min->z(), max->z()};
+}
+
+double PointCloud::min() const { return minmax().first; }
+double PointCloud::max() const { return minmax().second; }
+
