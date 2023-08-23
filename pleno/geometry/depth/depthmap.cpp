@@ -199,4 +199,116 @@ DepthMap DepthMap::to_virtual(const PlenopticCamera& pcm) const
 	
 	//else, convert to virtual
 	const double minv = pcm.obj2v(max_depth());
-	con
+	const double maxv = std::max(std::fabs(pcm.obj2v(min_depth())), pcm.obj2v(4. * std::ceil(pcm.focal())));
+		
+	DepthMap vdm{width(), height(), minv, maxv, VIRTUAL, map_type};
+	
+	#pragma omp parallel for
+	//copy and convert depth map data
+	for(std::size_t k = 0; k < width(); ++k)
+	{
+		for(std::size_t l = 0; l < height(); ++l)
+		{
+			if(depth(k,l) != DepthInfo::NO_DEPTH)
+			{
+				P2D idx;
+				if (is_refined_map()) { const auto [k_, l_] =  pcm.mia().uv2kl(k, l); idx = pcm.mi2ml(k_, l_); }
+				else { idx = pcm.mi2ml(k, l); }
+				
+				vdm.depth(k,l) = pcm.obj2v(depth(k,l), idx(0), idx(1));
+			}
+			vdm.state(k,l) = state(k,l);
+			vdm.confidence(k,l) = confidence(k,l);
+		}
+	}
+	
+	return vdm;	
+}
+
+
+//******************************************************************************
+// Helper functions
+//******************************************************************************
+bool DepthMap::is_virtual_depth() const { return (depth_type == VIRTUAL); }
+bool DepthMap::is_metric_depth() const { return not is_virtual_depth(); }
+
+bool DepthMap::is_coarse_map() const { return (map_type == COARSE); }
+bool DepthMap::is_refined_map() const { return not is_coarse_map(); }
+
+bool DepthMap::is_valid_depth(double d) const { return not(is_depth_out_of_bounds(d)); }
+
+bool DepthMap::is_depth_out_of_bounds(double d) const 
+{
+	return (d >= max_depth() or d < min_depth());
+}
+
+//******************************************************************************
+// save/load functions
+//******************************************************************************
+void save(v::OutputArchive& archive, const DepthInfo& di)
+{
+	std::uint16_t istate = di.state;
+	archive
+		("depth", di.depth)
+		("confidence", di.confidence)
+		("state", istate);
+}
+void load(v::InputArchive& archive, DepthInfo& di)
+{
+	std::uint16_t istate;
+	archive
+		("depth", di.depth)
+		("confidence", di.confidence)
+		("state", istate);
+		
+	di.state = DepthInfo::State(istate);
+}
+
+void save(v::OutputArchive& archive, const DepthMap& dm)
+{
+	int cols = dm.map.cols();
+	int rows =  dm.map.rows();
+	int n = cols * rows;
+	
+	AlignedVector<DepthInfo> depths(n);
+	DepthMap::DepthMapContainer::Map(depths.data(),1,n) = dm.map;
+	
+	bool metric = dm.is_metric_depth();
+	bool coarse = dm.is_coarse_map();
+	
+	double min = dm.min_depth();
+	double max = dm.max_depth();
+	
+	archive
+		("map", depths)
+		("cols", cols)
+		("rows", rows)
+		("min", min)
+		("max", max)
+		("metric", metric)
+		("coarse", coarse);
+}
+void load(v::InputArchive& archive, DepthMap& dm)
+{
+	AlignedVector<DepthInfo> depths;
+	int cols, rows;
+	bool metric, coarse;
+	double min, max;
+	
+	archive
+		("map", depths)
+		("cols", cols)
+		("rows", rows)
+		("min", min)
+		("max", max)
+		("metric", metric)
+		("coarse", coarse);
+		
+	dm.map = Eigen::Map<DepthMap::DepthMapContainer>(&depths[0], rows, cols);
+
+	dm.min_depth(min);
+	dm.max_depth(max);
+	
+	dm.map_type = coarse ? DepthMap::MapType::COARSE : DepthMap::MapType::REFINED;
+	dm.depth_type = metric ? DepthMap::DepthType::METRIC : DepthMap::DepthType::VIRTUAL;
+}
