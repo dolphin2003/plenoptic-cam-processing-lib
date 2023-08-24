@@ -37,4 +37,28 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 	MicroImagesArray(const MIAConfig& config = {});
 	
-	static double borde
+	static double border();
+	
+	double radius() const;
+	double diameter() const;
+	
+	//k,l are expressed in MIA space
+	int type(std::size_t I, std::size_t k, std::size_t l) const;
+	
+	MicroImage mi(const Image& scene, std::size_t k, std::size_t l, std::size_t I = 3ul) const;
+	
+	MicroImage mi(std::size_t k, std::size_t l, std::size_t I = 3ul) const;
+	void extract(MicroImage& mi, const Image& from) const;
+	
+	std::pair<std::size_t, std::size_t> uv2kl(double u, double v) const;
+};
+
+//******************************************************************************
+//******************************************************************************
+using MI					= MicroImage;
+using MicroImageObservation = MicroImage;
+using MIObservation 		= MicroImageObservation;
+using MIObservations		= AlignedVector<MIObservation>;
+
+using MIA 					= MicroImagesArray;
+//******************************************************************************
