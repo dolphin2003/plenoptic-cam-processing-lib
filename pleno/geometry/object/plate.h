@@ -56,4 +56,65 @@ public:
 	double width() const { return width_; }
 	
 	double& height() { return height_; }
-	double height() const { retur
+	double height() const { return height_; }
+	
+	double& scale() { return scale_; }
+	double scale() const { return scale_; }
+	
+	Image& texture() { return texture_; }
+	const Image& texture() const { return texture_; }
+
+//helper
+	void rescale(double scl = 1.)
+	{
+		//rescale image with scale
+		int wpixel = static_cast<int>(scl * width() / scale());
+		int hpixel = static_cast<int>(scl * height() / scale());
+	
+		cv::resize(texture(), texture(), cv::Size{wpixel, hpixel}, 0, 0, cv::INTER_LINEAR);
+	}
+
+//functions
+	bool is_inside(const P3D& pw) const 
+	{
+		const P3D p = to_coordinate_system_of(pose(), pw); //PLATE FRAME
+		return (/*.z() == 0. and */ p.x() > 0. and p.x() < width() and p.y() > 0. and p.y() < height());
+	}
+	
+	RGBA get_color(double x, double y) const //x, y in mm
+	{
+		const double u = x / scale();
+		const double v = y / scale(); 
+		cv::Mat patch;
+    	cv::getRectSubPix(texture(), cv::Size{1,1}, cv::Point2d{u,v}, patch);
+    
+    	const cv::Vec3f pixel = patch.at<cv::Vec3f>(0,0); //BGR?
+    	
+    	return RGBA{
+    		static_cast<double>(pixel[2]) * 255., 
+    		static_cast<double>(pixel[1]) * 255., 
+    		static_cast<double>(pixel[0]) * 255., 
+    		255.
+    	};
+	}
+	
+	// the plane coefficients
+	PlaneCoefficients plane() const
+	{
+		return plane_from_3_points(P3D{0.0, 0.0, 0.0},
+		                           P3D{width(), 0.0, 0.0},
+		                           P3D{width(), height(), 0.0}
+		);
+	};
+
+	// the plane coefficients in WORLD coordinate system
+	PlaneCoefficients planeInWorld() const
+	{
+		return plane_from_3_points(from_coordinate_system_of(pose(), P3D{0., 0., 0.}),
+		                           from_coordinate_system_of(pose(), P3D{width(), 0., 0.}),
+		                           from_coordinate_system_of(pose(), P3D{0., height(), 0.})
+		);
+	};
+};
+
+using Plates = AlignedVector<Plate>;
