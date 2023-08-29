@@ -48,3 +48,63 @@ P3D reproject_bapfeature(
 	P3D prediction; //IMAGE UV
 	if (model.project(p3d_cam, observation.k, observation.l, prediction) or not check)
 	{
+		return prediction;
+	}
+	else 
+	{
+		PRINT_WARN("Observation not reprojected ("<<prediction<<")");
+		return prediction; //P3D{-1.0, -1.0, -1.0};
+	}
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+template<typename Observation>
+P2D reproject_corner(
+	const PlenopticCamera& model, const Pose& pose, 
+	const CheckerBoard& grid, const Observation& observation, bool check = false
+)
+{
+	//observation indexes in ML space
+	const P3D p3d = grid.nodeInWorld(observation.cluster); // WORLD
+	const P3D p3d_cam = to_coordinate_system_of(pose, p3d); // CAMERA
+
+	P2D prediction; //IMAGE UV
+	if (model.project(p3d_cam, observation.k, observation.l, prediction) or not check)
+	{
+		return prediction;
+	}
+	else 
+	{
+		PRINT_WARN("Observation not reprojected ("<<prediction<<")");
+		return P2D{-1.0, -1.0};
+	}
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+inline
+double reproject_radius(
+	const PlenopticCamera& model, const Pose& pose, 
+	const CheckerBoard& grid, const BAPObservation& observation
+)
+{
+	DEBUG_ASSERT((model.I()>0u), "Can't reproject radius in BAP feature.");
+	
+	//observation indexes in ML space
+	const P3D p3d = grid.nodeInWorld(observation.cluster); // WORLD
+	const P3D p3d_cam = to_coordinate_system_of(pose, p3d); // CAMERA
+
+	double prediction; //IMAGE UV
+	if (model.project(p3d_cam, observation.k, observation.l, prediction))
+	{
+		return prediction;
+	}
+	else 
+	{
+		return 0.0;
+	}
+}
+
