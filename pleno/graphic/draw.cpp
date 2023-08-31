@@ -62,4 +62,20 @@ void colorize(int d, double f)
             glColor3f(f, 0.0, 0.0); //x axis: red
             break;
         case 2:
-            glColor3f(0.0, f, 0.0
+            glColor3f(0.0, f, 0.0); //y axis: green
+        break;
+        case 3:
+            glColor3f(0.0, 0.0, f); //z axis: blue
+        break;
+    }
+}
+
+/////////////////////////////////fill_form//////////////////////////////////////////////////////////
+/*
+    @Brief fill_form Fill a form in OpenGL
+*/
+void fill_form(const Quad3D& q)
+{
+    for (auto& p : q)
+        glVertex3dv(p.data());
+}
