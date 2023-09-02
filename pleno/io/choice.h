@@ -1,0 +1,34 @@
+#pragma once
+
+#include <iostream>
+#include <string>
+
+#include "graphic/gui.h"
+#include "io/printer.h"
+
+inline bool yes_no_question(std::string msg) 
+{
+	bool ret = false;
+	if(Printer::level() bitand Printer::Level::WARN)
+	{
+		PRINT_WARN(msg << "? [y/n]");
+		char c;
+		std::cin >> c;
+		if(c == 'y') { ret = true; }	
+		std::cin.clear();
+		while (std::cin.get() != '\n');
+	}
+	return ret;
+}
+
+inline bool finished() 
+{
+	return yes_no_question("Finished");
+}
+
+inline bool save() 
+{
+	return yes_no_question("Save");
+}
+
+inline voi

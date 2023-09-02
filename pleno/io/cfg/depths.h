@@ -85,4 +85,8 @@ V_DEFINE_PROPERTIES(DepthsConfig)
     
     V_DEFINE_PROPERTY(mats, 		MatsConfig(0), 			"Poses (.mat) configurations")
     
-    V_DEFINE_PROPERTY
+    V_DEFINE_PROPERTY(planes, 		PlanesConfig(0), 		"Planes (.bin.gz) configurations")
+    
+    V_DEFINE_PROPERTY(csads, 		CSADsConfig(0), 		"CSADs (.png) configurations")
+    V_DEFINE_PROPERTY(refcsads, 	CSADsConfig(0), 		"Reference CSADs (.png) configurations")
+)
