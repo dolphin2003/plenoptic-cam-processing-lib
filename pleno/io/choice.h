@@ -31,4 +31,25 @@ inline bool save()
 	return yes_no_question("Save");
 }
 
-inline voi
+inline void clear() 
+{
+	GUI(
+		PRINT_WARN("Clear viewer ? [y/n]");
+		char c;
+		std::cin >> c;
+		if(c == 'y') {Viewer::clear_all(); PRINT_DEBUG("Cleared !"); }	
+		std::cin.clear();
+		while (std::cin.get() != '\n');
+	);
+}
+
+inline void wait() 
+{
+	if(Printer::level() bitand Printer::Level::WARN)
+	{
+		PRINT_WARN("Press key to continue...");
+		std::getchar();
+	}
+}
+
+
