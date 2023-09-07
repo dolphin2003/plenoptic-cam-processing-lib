@@ -186,4 +186,153 @@ bool DisparityCostError_<useBlur>::operator()(
 					cv::add(fedi, (std::fabs(sigma_sqr_r) / 4.) * lpedi, fedi); //see Eq.(29)
 					
 					#if ENABLE_DEBUG_SAVE_IMG
-						lpedi.convertTo(buff,
+						lpedi.convertTo(buff, CV_8UC1, 255.);
+						cv::imwrite("laplacian-"+std::to_string(getpid())+".png", buff);
+						fedi.convertTo(buff, CV_8UC1, 255.);
+						cv::imwrite("edi-"+std::to_string(getpid())+".png", buff);
+					#endif
+					
+					break;
+				}	
+				case GAUSSIAN_BLUR:
+				{
+					Image medi, bedi, bmask;
+					
+					medi = fedi.mul(fmask); //apply mask on edi
+					cv::GaussianBlur(fmask, bmask, cv::Size{0,0}, sigma_r, sigma_r); //blur mask
+					cv::GaussianBlur(fedi, bedi, cv::Size{0,0}, sigma_r, sigma_r); //blur masked image	
+					cv::divide(bedi, bmask, fedi); //divide the blurred masked image by the blurred mask 
+					break;
+				}
+				case APPROX_GAUSSIAN_BLUR: //blur w/o considering neighbors impact
+				{
+					cv::GaussianBlur(fedi, fedi, cv::Size{0,0}, sigma_r, sigma_r);
+					break;
+				}	
+			}
+		}
+	}
+	else
+	{
+		UNUSED(fedi); UNUSED(lpedi);
+	}
+		
+//4) warp image according to depth hypothesis
+	//4.1) compute transformation
+	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disp[0], 0., 1., disp[1]); //Affine transformation, see Eq.(26)
+	
+	//4.2) warp mask and target	
+	const auto interp = cv::INTER_LINEAR; //cv::INTER_CUBIC; //
+	Image wmask, wtarget;
+	cv::warpAffine(fmask, wmask, M, fmask.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(ftarget, wtarget, M, ftarget.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	
+	trim_double(wmask, radius); //Final mask =  micro-image mask INTER warped masked, see Eq.(28)
+	
+	//4.3) apply mask
+	Image finalref = fref.mul(wmask);
+	Image finaltarget = wtarget.mul(wmask); 	
+	
+	#if ENABLE_DEBUG_SAVE_IMG
+		wmask.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("wmask-"+std::to_string(getpid())+".png", buff);
+		wtarget.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("wtarget-"+std::to_string(getpid())+".png", buff);
+		finalref.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("mref-"+std::to_string(getpid())+".png", buff);
+		finaltarget.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("mwtarget-"+std::to_string(getpid())+".png", buff);
+	#endif
+	
+	//4.4) get sub window if at specific pixel
+	const int h = mii.mi.rows;
+	const int w = mii.mi.cols;
+	
+	cv::Rect window{0,0, w, h}; //initialize at all the micro-image content
+	if (compute_at_pixel())
+	{
+		const auto [cu, cv] = ((at - mii.center).norm() < (at-mij.center).norm()) ?
+				std::pair<double, double>{mii.center[0], mii.center[1]} 
+			: 	std::pair<double, double>{mij.center[0], mij.center[1]};
+	
+		const int s = std::min(
+			w-(window_size/2)-1, 
+			std::max(0,	static_cast<int>(std::round(at[0] - cu + double(w / 2.))))
+		);
+				
+		const int t = std::min(
+			h-(window_size/2)-1, 
+			std::max(0, static_cast<int>(std::round(at[1] - cv + double(h / 2.))))
+		); 		
+		//FIXME: think about getting a rotated rectangle along EPI
+		window = cv::Rect{s, t, window_size, window_size};
+	}
+	
+//5) compute cost	
+	const double summask = cv::sum(wmask(window))[0];
+	if (summask < threshold_reprojected_pixel) return false;
+	
+	const double normalization = 1. / (summask + epsilon); //number of pixel to take into account, see Eq.(31)
+	const double err = cv::norm(finalref(window), finaltarget(window), cv::NORM_L1) * normalization; //normalized SAD = MAD, see Eq.(30)
+
+	error[0] = err;
+	
+#if ENABLE_DEBUG_DISPLAY
+	Image costimg;
+	cv::add(finalref, -1. * finaltarget, costimg);
+	costimg = cv::abs(costimg);
+
+	cv::namedWindow("ref", cv::WINDOW_NORMAL);
+	cv::namedWindow("fref", cv::WINDOW_NORMAL);
+	cv::namedWindow("target", cv::WINDOW_NORMAL);
+	cv::namedWindow("ftarget", cv::WINDOW_NORMAL);
+	cv::namedWindow("wmask", cv::WINDOW_NORMAL);
+	cv::namedWindow("cost", cv::WINDOW_NORMAL);
+	
+	cv::resizeWindow("ref", 200u, 200u);
+	cv::resizeWindow("fref", 200u, 200u);
+	cv::resizeWindow("target", 200u, 200u);
+	cv::resizeWindow("ftarget", 200u, 200u);
+	cv::resizeWindow("wmask", 200u, 200u);
+	cv::resizeWindow("cost", 200u, 200u);
+	
+	cv::imshow("fref", finalref);
+	cv::imshow("ref", fref);
+	cv::imshow("target", ftarget);
+	cv::imshow("ftarget", finaltarget);
+	cv::imshow("wmask", wmask);
+	cv::imshow("cost", costimg);
+	
+	if (compute_at_pixel())
+	{
+		cv::namedWindow("wcost", cv::WINDOW_NORMAL);
+		cv::resizeWindow("wcost", 200u, 200u);
+		cv::imshow("wcost", costimg(window));
+	}
+
+	if constexpr (useBlur)
+	{
+		if (mii.type != mij.type) //if not the same type
+		{
+			cv::namedWindow("lpedi", cv::WINDOW_NORMAL);
+			cv::resizeWindow("lpedi", 200u, 200u);
+			cv::imshow("lpedi", lpedi);
+		}	
+		DEBUG_VAR(sigma_sqr_r);
+	}
+	
+	DEBUG_VAR(v);
+	DEBUG_VAR(deltaC);
+	DEBUG_VAR(disparity);
+	DEBUG_VAR(err);
+	DEBUG_VAR(normalization);
+	PRINT_DEBUG("---------------------------");
+	
+	wait();
+#endif
+	
+    return true;
+}
+
+template struct DisparityCostError_<false>;
+template struct DisparityCostError_<tr
