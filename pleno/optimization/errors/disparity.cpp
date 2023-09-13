@@ -335,4 +335,5 @@ bool DisparityCostError_<useBlur>::operator()(
 }
 
 template struct DisparityCostError_<false>;
-template struct DisparityCostError_<tr
+template struct DisparityCostError_<true>;
+
