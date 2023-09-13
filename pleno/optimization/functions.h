@@ -40,3 +40,16 @@ namespace lma
     void apply_increment(CubicFunction& f, const double delta[Size<CubicFunction>::value], const Adl&);
     void apply_small_increment(CubicFunction& f, const double h, const v::core::numeric_tag<0>&, const Adl&);
     void apply_small_increment(CubicFunction& f, const double h, const v::core::numeric_tag<1>&, const Adl&);
+    void apply_small_increment(CubicFunction& f, const double h, const v::core::numeric_tag<2>&, const Adl&);
+    void apply_small_increment(CubicFunction& f, const double h, const v::core::numeric_tag<3>&, const Adl&);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    template<>
+    struct Size<QuarticFunction>{ enum{ value = 5 }; };
+
+    void apply_increment(QuarticFunction& f, const double delta[Size<QuarticFunction>::value], const Adl&);
+    void apply_small_increment(QuarticFunction& f, const double h, const v::core::numeric_tag<0>&, const Adl&);
+    void apply_small_increment(QuarticFunction& f, const double h, const v::core::numeric_tag<1>&, const Adl&);
+    void apply_small_increment(QuarticFunction& f, const double h, const v::core::numeric_tag<2>&, const Adl&);
+    void apply_small_increment(QuarticFunction& f, const double h, const v::core::numeric_tag<3>&, const Adl&);
+    void apply_small_increment(QuarticFunction& f, const double h, const v::core::numeric_tag<4>&, const Adl&);
+} // namespace lma
