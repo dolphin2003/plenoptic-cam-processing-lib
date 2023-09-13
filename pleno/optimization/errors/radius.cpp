@@ -52,4 +52,20 @@ bool BlurRadiusReprojectionError::operator()(
     if (P2D pp = pcm.pp(); pp.x() < pcm.sensor().width() * ratio or pp.x() > pcm.sensor().width() * (1. - ratio) 
     	or pp.y() < pcm.sensor().height() * ratio or pp.y() > pcm.sensor().height() * (1. - ratio))
     {
-  
+   	 	error[0] += penalty; //std::expm1(-pp.x());
+    }
+	
+    //pose is too far
+	if (double z = std::fabs(camera_pose.translation().z()); z > pcm.distance_focus() - pcm.focal())
+	{
+   	 	error[0] += penalty; // std::expm1(-z);
+	}	
+	
+	//focal planes are too far
+	if (double fp = pcm.focal_plane(pcm.mla().type(observation.k, observation.l), observation.k, observation.l); fp > pcm.distance_focus() - pcm.focal())
+	{
+   	 	error[0] += penalty; // std::expm1(-z);
+	}
+#endif	    
+    return true;
+}
