@@ -10,4 +10,8 @@ namespace lma
 		kappa.kappa += delta[0];
 	}
 
-	void
+	void apply_small_increment(BlurProportionalityCoefficient& kappa, const double h, const v::core::numeric_tag<0>&, const Adl&)
+	{
+		kappa.kappa += h;
+	}
+} // namespace lma
