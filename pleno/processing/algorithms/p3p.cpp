@@ -146,4 +146,46 @@ bool solve_p3p(
     + 2 * p1*p1 * p2 * d12 * b
     + 2 * phi2 * p2*p2*p2 * phi1 * d12
     - 2 * phi2*phi2 * p2*p2*p2 * d12 * b
-    - 2 * p1 * p
+    - 2 * p1 * p2 * d12*d12 * b
+    ,
+    - 2 * phi2 * p2*p2 * phi1 * p1 * d12 * b
+    + phi2*phi2 * p2*p2 * d12*d12
+    + 2 * p1*p1*p1 * d12
+    - p1*p1 * d12*d12
+    + phi2*phi2 * p2*p2 * p1*p1
+    - p1*p1*p1*p1
+    - 2 * phi2*phi2 * p2*p2 * p1 * d12
+    + p2*p2 * phi1*phi1 * p1*p1
+    + phi2*phi2 * p2*p2 * d12*d12 * b*b
+    );
+
+  for(int i = 0; i < 4; ++i)
+  {
+    double cos_theta = roots[i];
+
+    // • for each solution, find the values for cot α using (9)
+    double cot_alpha = (-phi1 * p1 / phi2 - cos_theta * p2 + d12 * b) / (-phi1 * cos_theta * p2 / phi2 + p1 - d12);
+
+    // • compute all necessary trigonometric forms of α and θ using trigonometric relationships and the restricted parameter domains
+    double sin_theta = cos_theta*cos_theta < 1 ? std::sqrt(1 - cos_theta*cos_theta) : 0;
+    double sin_alpha = std::sqrt(1 / (cot_alpha*cot_alpha + 1));
+    double cos_alpha = std::sqrt(1 - sin_alpha*sin_alpha) * (cot_alpha < 0 ? -1 : 1);
+
+    // • for each solution, compute C η and Q using (5) and (6), respectively
+    Eigen::Vector3d C; C <<
+      d12 * cos_alpha * (sin_alpha * b + cos_alpha),
+      d12 * sin_alpha * (sin_alpha * b + cos_alpha) * cos_theta,
+      d12 * sin_alpha * (sin_alpha * b + cos_alpha) * sin_theta;
+    Eigen::Matrix3d R; R <<
+      -cos_alpha, -sin_alpha*cos_theta, -sin_alpha*sin_theta,
+      +sin_alpha, -cos_alpha*cos_theta, -cos_alpha*sin_theta,
+      0,          -sin_theta,           +cos_theta;
+
+    // • for each solution, compute the absolute camera center C and orientation R using (12) and (13), respectively
+    solutions[i].translation() = (P1 + N.transpose() * C);
+    solutions[i].rotation() = (N.transpose() * R.transpose() * T);
+  }
+
+  return true;
+}
+
