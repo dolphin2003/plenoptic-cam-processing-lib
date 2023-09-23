@@ -66,4 +66,29 @@ void calibration_inverseDistortions(
 );
 
 //******************************************************************************
-//************
+//******************************************************************************
+//******************************************************************************
+void calibration_LidarPlenopticCamera(                        
+	CalibrationPose& pose, /* out */                   
+	const PlenopticCamera& model, /* in */   
+	const PointsConstellation& constellation,
+	const BAPObservations& observations, /* (u,v,rho?) */
+	const Image& scene
+);
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+template <typename ScalingFunction>
+void calibration_depthScaling(                        
+	ScalingFunction& scaling,  
+	const PlenopticCamera& mfpc, const CheckerBoard& scene,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
+	const std::unordered_map<Index, BAPObservations>& observations
+);
+
+#include "scaling.hpp"
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
