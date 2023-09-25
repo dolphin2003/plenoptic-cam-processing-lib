@@ -148,4 +148,160 @@ void link_cluster_to_node_index(
 	P2D p00, p01, p10;
 	monocular.project(to_coordinate_system_of(pose, grid.nodeInWorld(0,0)), p00);
 	monocular.project(to_coordinate_system_of(pose, grid.nodeInWorld(grid.width()-1, 0)), p01);
-	monocular.project(to_coordinate_s
+	monocular.project(to_coordinate_system_of(pose, grid.nodeInWorld(0, grid.height()-1)), p10);
+	const double interdist = (  (p00 - p01).norm() / static_cast<double>(grid.width()-1)
+							 + 	(p00 - p10).norm() / static_cast<double>(grid.height()-1)
+							 ) / 2. ;
+	constexpr double tolerance = 0.6;
+	
+	//For each checkerboard node
+	for(std::size_t k = 0; k < grid.width(); ++k) //iterate through columns //x-axis
+    {
+    	for(std::size_t l = 0; l < grid.height(); ++l) //iterate through lines //y-axis
+		{
+			const int id = l * grid.width() + k; //node id
+			
+			//Project node in image
+			const P3D p3d_cam = to_coordinate_system_of(pose, grid.nodeInWorld(k,l));	
+			P2D projection; // a projected checkerboard node in IMAGE UV
+        	bool projected = monocular.project(p3d_cam, projection);
+        	       	
+        	if ((not projected)) 
+        	{ 
+        		if(verbose) PRINT_ERR("CheckerBoard Node ("<<k<<", "<<l<<") not reprojected in image : "<<projection); 
+        		continue; 
+        	}	
+        	
+        	//Find nearest cluster
+        	int cluster = -1;
+        	double dist = 1e20;
+        	for(const auto &ob : barycenters)
+        	{
+        		const double new_dist = std::hypot(ob[0] - projection[0], ob[1] - projection[1]);
+        		if( new_dist < dist and new_dist < interdist * tolerance) 
+        		{
+        			dist = new_dist;
+        			cluster = ob.cluster;
+        		}
+        	}
+        	
+        	if(verbose) 
+        	{
+				GUI(
+					RENDER_DEBUG_2D(Viewer::context().layer(Viewer::layer())
+						.point_style(v::Cross).pen_color(v::cyan).pen_width(5)
+						.add_text(projection[0], projection[1] + 5, "("+std::to_string(k)+", "+std::to_string(l)+")")
+						.name("Projected nodes"),
+						projection
+					);
+				);
+			}
+			
+			if(cluster != -1 and id_mapping.count(cluster) == 0) 
+				id_mapping[cluster] = id;
+		}
+	}
+	if(verbose) 
+    {
+		GUI(
+			Viewer::context().point_style(v::Pixel); //restore point style
+			Viewer::update();
+		);
+	}
+	//Assign new cluster id
+	for (auto& o : observations)
+	{
+		if(id_mapping.count(o.cluster) > 0) 
+		{
+			o.cluster = id_mapping[o.cluster];
+			o.isValid = true;	
+		}
+		else
+		{
+			o.cluster = -1;
+			o.isValid = false;		
+		}
+	}
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+inline void link_center_to_node_index(
+	MICObservations& centers, //in/out
+	const MIA& grid
+)
+{
+	constexpr double tolerance = 0.7;
+	const double interdist = grid.pitch()[0];
+	const int size = static_cast<int>(grid.nodeNbr());
+	
+	//Invalidate all observations
+	std::for_each(
+    	centers.begin(), centers.end(),
+    	[](MICObservation& center) { center.isValid = false; }
+    );
+	
+	// for each grid node
+#pragma omp parallel for
+    for (int index = 0; index < size ; ++index)
+    {
+        const P2D node = grid.nodeInWorld(index);
+        
+        //Find nearest center
+    	int nearest_id = -1, center_id = 0;
+    	double dist = 1e20;
+    	for(const auto &c : centers)
+    	{
+    		const double new_dist = (P2D{c[0],c[1]} - node).norm(); 
+    		if( new_dist < dist and new_dist < interdist * tolerance) 
+    		{
+    			dist = new_dist;
+    			nearest_id = center_id;
+    		}
+    		
+    		++center_id;
+    	}
+        
+        if(nearest_id != -1) //if a center is found
+        {
+        	const auto kl = index_to_colRow(grid.width(), index);
+        	centers[nearest_id].k = kl[0]; centers[nearest_id].l = kl[1]; 
+        	centers[nearest_id].isValid = true;
+        }
+   }
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+template<typename Observations>
+void link_cluster_to_point_constellation_index(
+	Observations& observations,
+	const PlenopticCamera& pcm, 
+	const PointsConstellation& constellation,	
+	const Image& gray
+)
+{
+	PRINT_WARN("Link requires manual intervention.");
+	
+	std::unordered_map<int /* old id */, int /* new id */> id_mapping;
+	
+FORCE_GUI(true);
+	const double ratio = double(gray.rows) / double(gray.cols);
+	const int base_size = 800;
+	
+	GUI(
+		RENDER_DEBUG_2D(
+			Viewer::context().size(base_size,base_size*ratio).layer(Viewer::layer()).name("Scene"), 
+			gray
+		);
+    );
+    Viewer::update();	
+	
+	//compute barycenters
+	const Observations barycenters = compute_barycenters(observations); DEBUG_VAR(barycenters.size());
+	display(-1, barycenters, tag::Barycenters{});
+	
+	//for each point in constellation
+	for (std::size_t i = 0; i < cons
