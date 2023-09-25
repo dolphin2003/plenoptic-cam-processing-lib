@@ -304,4 +304,72 @@ FORCE_GUI(true);
 	display(-1, barycenters, tag::Barycenters{});
 	
 	//for each point in constellation
-	for (std::size_t i = 0; i < cons
+	for (std::size_t i = 0; i < constellation.size(); ++i)
+	{
+		volatile bool finished = false;
+		
+		P2D point; 
+		
+		PRINT_INFO("Click on cluster corresponding to point (" << i << ") in constellation");	
+		Viewer::context().on_click([&](float x, float y){
+			if (x > 0. and x < pcm.sensor().width() and y > 0. and y < pcm.sensor().height())
+			{
+				PRINT_DEBUG("Click at position ("<< x << ", "<< y << ")");
+				GUI(
+					P2D c = P2D{x,y};
+		  			Viewer::context().layer(Viewer::layer())
+		  				.name("Selected cluster")
+		  				.pen_color(v::purple).pen_width(5)
+		  				.add_circle(c[0], c[1], 25.)
+		  				.update();
+				);
+			
+				point.x() = x;
+				point.y() = y;			
+				finished = true;
+			}
+			else
+			{
+				PRINT_ERR("Click out of bound, unvalidated. Try again.");
+				return;
+			}
+		});
+		
+		//wait for click	
+		while(not finished);
+		Viewer::context().on_click([&](float, float){});
+		
+		//find nearest cluster
+		int minc = -1; double mindist = 1e5; int j = 0;
+		for (const auto& center : barycenters)
+		{
+			const double dist = (P2D{center.u, center.v} - point).norm(); 
+			if (dist < mindist)
+			{
+				minc = j;
+				mindist = dist;
+			}
+			++j;
+		}
+		
+		id_mapping[minc] = i;							
+	}
+	
+	//assign new cluster id
+	for (auto& o : observations)
+	{
+		if(id_mapping.count(o.cluster) > 0) 
+		{
+			o.cluster = id_mapping[o.cluster];
+			o.isValid = true;	
+		}
+		else
+		{
+			o.cluster = -1;
+			o.isValid = false;		
+		}
+	}
+
+FORCE_GUI(false);
+}
+
