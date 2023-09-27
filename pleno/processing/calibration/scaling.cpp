@@ -24,4 +24,5 @@ void calibration_depthScaling<QuadraticFunction>(
 	QuadraticFunction& scaling,
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
 	const std::unordered_map<Index, DepthMap>& depthmaps,
-	const std::unordered_map<Index,
+	const std::unordered_map<Index, BAPObservations>& observations
+);
