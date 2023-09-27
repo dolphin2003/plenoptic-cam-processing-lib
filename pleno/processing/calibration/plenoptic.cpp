@@ -105,4 +105,150 @@ void optimize(
 				}
 				s.solve(lma::DENSE, lma::enable_verbose_output());
 			}
-		}, vsol
+		}, vsolver
+	);	
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void calibration_PlenopticCamera(                 
+	CalibrationPoses& poses, /* out */                                   
+	PlenopticCamera& model, /* out */
+	const CheckerBoard & grid,
+	const BAPObservations& observations, /*  (u,v,rho) */
+	const MICObservations& micenters, /* c_{k,l} */
+	const IndexedImages& pictures /* for GUI only */
+)
+{
+	BAPObservations features;
+	features.reserve(observations.size());
+	
+	MICObservations centers{micenters.begin(), micenters.end()};
+	
+//1) Init Extrinsics
+	PRINT_INFO("=== Init Extrinsics Parameters");	
+	init_extrinsics(
+		features, poses,
+		model, grid, observations
+	);
+	{
+		CalibrationPosesConfig cfg_poses;
+		cfg_poses.poses().resize(poses.size());
+		
+		int i=0;
+		for(const auto& [p, f] : poses) {
+			cfg_poses.poses()[i].pose() = p;
+			cfg_poses.poses()[i].frame() = f;
+			++i;
+		}
+		
+		v::save(
+			"initial-poses-"+std::to_string(getpid())+".js", 
+			cfg_poses
+		);
+	}
+	clear();
+	
+//2) Sanitize Observations
+	PRINT_INFO("=== Sanitize Observations");
+	
+	PRINT_DEBUG("Link center to node index");
+	link_center_to_node_index(centers, model.mia());	
+		
+	PRINT_DEBUG("Remove not affected centers");
+	centers.erase(
+		std::remove_if(centers.begin(), centers.end(), 
+			[](const auto& c){return (not c.isValid);}
+		),
+		centers.end()
+	);
+	centers.shrink_to_fit(); DEBUG_VAR(centers.size());
+	
+	PRINT_DEBUG("Remove not affected features");
+	features.erase(
+		std::remove_if(features.begin(), features.end(), 
+			[max_id = grid.nodeNbr()](const auto& f){
+				return (not f.isValid) or f.cluster == -1 or f.frame == -1 or f.cluster >= int(max_id);
+			}
+		),
+		features.end()
+	);
+	features.shrink_to_fit(); DEBUG_VAR(features.size());
+	
+	PRINT_DEBUG("Save linked observations");
+	ObservationsConfig cfg_obs;
+	cfg_obs.features() = features;
+	cfg_obs.centers() = centers;			
+	v::save("linked-observations-"+std::to_string(getpid())+".bin.gz", cfg_obs);
+
+	PRINT_DEBUG("Change indexes' space from MI to ML");
+	model.mi2ml(centers);
+	model.mi2ml(features);
+
+	display(grid); display(poses);
+		 
+//3) Run optimization
+	PRINT_INFO("=== Run optimization");
+	auto initial_model = model;
+	auto initial_poses = poses;
+	
+	DEBUG_VAR(initial_model);
+	
+	optimize(poses, model, grid, features, centers);
+	
+	PRINT_INFO("=== Optimization finished! Results:");
+	PRINT_DEBUG("Optimized model:");
+	{
+		DEBUG_VAR(model);
+		
+		save("model-intrinsics-"+std::to_string(getpid())+".js", model);
+		v::save(
+			"model-params-"+std::to_string(getpid())+".js", 
+			v::make_serializable(&model.params())
+		);
+	}
+	PRINT_DEBUG("Optimized poses:");
+	{
+		CalibrationPosesConfig cfg_poses;
+		cfg_poses.poses().resize(poses.size());
+		
+		int i=0;
+		for(const auto& [p, f] : poses) {
+			DEBUG_VAR(f); DEBUG_VAR(p); 
+			cfg_poses.poses()[i].pose() = p;
+			cfg_poses.poses()[i].frame() = f;
+			++i;
+		}
+		
+		v::save(
+			"model-poses-"+std::to_string(getpid())+".js", 
+			cfg_poses
+		);
+	}
+//4) Checking the parameters
+	PRINT_INFO("=== Computing individual RMSE");
+	evaluate_rmse(model, poses, grid, features, centers, true);
+
+	if (pictures.size() > 0)
+	{
+		clear();
+		if (yes_no_question("Do you want to graphically check the results"))
+		{
+		FORCE_GUI(true);
+			PRINT_INFO("=== Graphically checking the parameters");
+			if (model.I() > 0u)
+			{
+				display(model, poses, grid, features, centers, pictures);
+			} 
+			else
+			{
+				CBObservations cfeatures;
+				convert(features, cfeatures);
+				display(model, poses, grid, cfeatures, centers, pictures);
+			}
+		FORCE_GUI(false);
+		}	
+		wait();
+	}
+}
