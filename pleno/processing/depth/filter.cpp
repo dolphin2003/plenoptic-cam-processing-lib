@@ -305,4 +305,167 @@ DepthMap bilateral_filter_depth(
 						sd = mfpc.obj2v(dm.depth(k,l), idx(0), idx(1));
 					}
 				}				
-				/
+				//if (double d = dm.depth(k, l); d == DepthInfo::NO_DEPTH) continue;
+				
+				//get neighbors
+			 	NeighborsIndexes neighs = neighbors(mia, k, l, sd, sd);  
+				
+				double sum = 0., weight = 0.;	
+				for(auto&n : neighs) 
+				{
+					//const double d = dm.depth(n.k, n.l);
+					//if (d == DepthInfo::NO_DEPTH) continue;
+					
+					const double w = kernel(k, l, n.k, n.l, sd * mia.radius(), sr);
+					sum += dm.depth(n.k, n.l) * w;
+					weight += w;			
+				}
+			
+				filtereddm.depth(k,l) = sum / (weight + 1e-12);
+			}
+		}
+	}
+	else if (dm.is_refined_map())
+	{
+		auto kernel = [&](std::size_t k, std::size_t l, std::size_t nk, std::size_t nl, double sd, double sr) -> double {
+			const double d = dm.depth(k, l);
+			const double nd = dm.depth(nk, nl);
+			
+			return std::exp(
+				- (P2D{k,l} - P2D{nk, nl}).squaredNorm() / (2. * sd * sd)
+				- (d != DepthInfo::NO_DEPTH) * (d - nd) * (d - nd) / (2. * sr * sr)
+			);
+		};
+		
+		constexpr std::size_t margin = 0;
+	
+		const std::size_t kmax = mia.width()-margin; 
+		const std::size_t kmin = 0+margin;
+		const std::size_t lmax = mia.height()-margin; 
+		const std::size_t lmin = 0+margin;
+		
+		for(std::size_t k = kmin; k < kmax; ++k)
+		{
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{				
+				if (permicroimage)
+				{
+					double sd = sigmad;
+					if (sd == AUTOMATIC_FILTER_SIZE) sd = 0.3;
+					
+					//get neighbors
+				 	NeighborsIndexes neighs = pixels_neighbors(mia, dm.width(), dm.height(), k, l); 
+					
+					//for each pixel
+					for (const auto&c : neighs)
+					{
+						if (double d = dm.depth(c.k, c.l); d == DepthInfo::NO_DEPTH) continue;
+						
+						double sum = 0., weight = 0.;	
+						for(const auto&n : neighs) 
+						{
+							const double d = dm.depth(n.k, n.l);
+							if (d == DepthInfo::NO_DEPTH) continue;
+							
+							const double w = kernel(c.k, c.l, n.k, n.l, sd * mia.radius(), sr);
+							sum += dm.depth(n.k, n.l) * w;
+							weight += w;			
+						}
+					
+						filtereddm.depth(c.k, c.l) = sum / (weight + 1e-12);
+					}
+				}
+				else
+				{
+					//get pixels
+				 	const NeighborsIndexes pixels = pixels_neighbors(mfpc.mia(), dm.width(), dm.height(), k, l); 
+					
+					for (const auto& pixel : pixels)
+					{		
+						double d = dm.depth(pixel.k, pixel.l);
+						//if (d == DepthInfo::NO_DEPTH) continue;	
+						
+						if (dm.is_metric_depth()) 
+						{
+							const P2D idx =  mfpc.mi2ml(k, l);
+							d = mfpc.obj2v(dm.depth(pixel.k, pixel.l), idx(0), idx(1));
+						}
+						
+						double sd = sigmad;
+						if (sd == AUTOMATIC_FILTER_SIZE) sd = d;
+						
+						//get neighbors
+					 	NeighborsIndexes neighs = neighbors(mfpc.mia(), k, l, d, d); 	
+						
+						double sum = 0., weight = 0.;
+						for(auto&n : neighs) 
+						{
+							const P2D disparity = mfpc.disparity(k, l, n.k, n.l, d);
+							const std::size_t nk = static_cast<std::size_t>(pixel.k - disparity[0]); 
+							const std::size_t nl = static_cast<std::size_t>(pixel.l - disparity[1]); 
+							
+							const double nd = dm.depth(nk, nl); 
+							const double w = kernel(pixel.k, pixel.l, nk, nl, sd * mia.radius(), sr);
+							
+							sum += nd * w;
+							weight += w;			
+						}
+						
+						filtereddm.depth(pixel.k, pixel.l) = sum / (weight + 1e-12);
+					} //rof pixels	
+				} //fi permicroimage
+			} //rof l
+		} //rof k
+	} //fi coarse
+	
+	return filtereddm;	
+}
+
+void inplace_bilateral_filter_depth(
+	DepthMap& dm, const PlenopticCamera& mfpc, double sigmar, double sigmad, bool permicroimage
+)
+{
+	const DepthMap temp = bilateral_filter_depth(dm, mfpc, sigmar, sigmad, permicroimage);
+	temp.copy_to(dm);
+} 
+
+
+//******************************************************************************
+//******************************************************************************
+DepthMap consistency_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double threshold)
+{	
+	DepthMap filtereddm{dm};
+	
+	constexpr std::size_t margin = 2;
+	
+	if (dm.is_coarse_map())
+	{
+		const std::size_t kmax = dm.width()-margin; 
+		const std::size_t kmin = 0+margin;
+		const std::size_t lmax = dm.height()-margin; 
+		const std::size_t lmin = 0+margin;
+		
+		for(std::size_t k = kmin; k < kmax; ++k)
+		{
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{
+				double sz = dm.depth(k,l);
+				if (sz != DepthInfo::NO_DEPTH and dm.is_metric_depth()) 
+				{
+					const P2D idx =  mfpc.mi2ml(k,l);
+					sz = mfpc.obj2v(dm.depth(k,l), idx(0), idx(1));
+				}
+				
+				//get neighbors
+			 	NeighborsIndexes neighs = neighbors(mfpc.mia(), k, l, sz, sz); 
+				
+				std::vector<double> depths; depths.reserve(neighs.size()+1);
+				depths.emplace_back(dm.depth(k,l));
+				
+				for(auto&n : neighs) 
+					if(double nd = dm.depth(n.k, n.l); nd != DepthInfo::NO_DEPTH) 
+						depths.emplace_back(nd);
+			
+				const double medd = median(depths);
+				
+				if (std::fabs(medd - dm.depth(k,l)) > threshold or depths.size(
