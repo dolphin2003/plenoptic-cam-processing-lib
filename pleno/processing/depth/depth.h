@@ -47,4 +47,26 @@ struct DepthHypothesis {
 	}
 };
 
-//*********************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+struct DepthEstimationStrategy;
+struct DepthMap;
+
+void estimate_depth(
+	DepthMap& dm,
+	const PlenopticCamera& mfpc,
+	const Image& img,
+	const DepthEstimationStrategy& strategies,
+	const Image& color, 
+	bool gui = true
+);
+
+void estimate_depth_from_obs(
+	DepthMap& dm,
+	const PlenopticCamera& mfpc,
+	const Image& img,
+	const BAPObservations& observations,/*  (u,v,rho) */
+	bool gui = true
+);
+
