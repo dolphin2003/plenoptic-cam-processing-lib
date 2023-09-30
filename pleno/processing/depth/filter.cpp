@@ -771,4 +771,87 @@ void inplace_morph_occo_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, 
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.width()-ma
+	const std::size_t kmax = dm.width()-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.height()-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for (std::size_t k = kmin; k < kmax; ++k)
+	{
+		for (std::size_t l = lmin; l < lmax; ++l)
+		{
+			dm.depth(k,l) = 0.5 * (ocdm.depth(k,l) + codm.depth(k,l));
+		}
+	}
+} 
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+PointCloud minmax_filter_depth(const PointCloud& pc, double min, double max, Axis ax)
+{	
+	PointCloud temp{pc};
+	inplace_minmax_filter_depth(temp, min, max, ax);
+	
+	return temp;
+}
+
+void inplace_minmax_filter_depth(PointCloud& pc, double min, double max, Axis ax)
+{		
+	for (std::size_t i = 0; i < pc.nbPoints(); ++i)
+	{
+		const double x = pc.feature(i).x(); 
+		const double y = pc.feature(i).y(); 
+		const double z = pc.feature(i).z(); 
+		
+		//check x
+		if ((x < min or x > max) and (ax == Axis::X or ax == Axis::XY or ax == Axis::XZ or ax == Axis::XYZ))
+		{
+			pc.remove(i);
+		}
+		//check y
+		else if ((y < min or y > max) and (ax == Axis::Y or ax == Axis::XY or ax == Axis::YZ or ax == Axis::XYZ))
+		{
+			pc.remove(i);
+		}
+		//check z
+		else if ((z < min or z > max) and (ax == Axis::Z or ax == Axis::YZ or ax == Axis::XZ or ax == Axis::XYZ))
+		{
+			pc.remove(i);
+		}
+	}
+}
+
+//******************************************************************************
+PointCloud maxcount_filter_depth(const PointCloud& pc, std::size_t n)
+{	
+	PointCloud temp{pc};
+	inplace_maxcount_filter_depth(temp, n);
+	
+	return temp;
+}
+
+void inplace_maxcount_filter_depth(PointCloud& pc, std::size_t n)
+{
+#if SAME_SEED 
+    static thread_local std::mt19937 mt;
+#else
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 mt(rd());
+#endif
+	
+	if (pc.size() < n) return;
+
+	std::size_t left = pc.size() - n;
+    while (left--) 
+    {
+    	std::uniform_int_distribution<> dis(0, left);
+    	pc.remove(dis(mt));    	
+    }
+    
+    pc.shrink();
+}
