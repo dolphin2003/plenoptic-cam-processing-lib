@@ -468,4 +468,165 @@ DepthMap consistency_filter_depth(const DepthMap& dm, const PlenopticCamera& mfp
 			
 				const double medd = median(depths);
 				
-				if (std::fabs(medd - dm.depth(k,l)) > threshold or depths.size(
+				if (std::fabs(medd - dm.depth(k,l)) > threshold or depths.size() <= 3)
+					filtereddm.depth(k,l) = DepthInfo::NO_DEPTH;						
+			}
+		}
+	}
+	else if (dm.is_refined_map())
+	{
+		const std::size_t kmax = mfpc.mia().width()-margin; 
+		const std::size_t kmin = 0+margin;
+		const std::size_t lmax = mfpc.mia().height()-margin; 
+		const std::size_t lmin = 0+margin;
+		
+		for(std::size_t k = kmin; k < kmax; ++k)
+		{
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{
+				//get pixels
+			 	const NeighborsIndexes pixels = pixels_neighbors(mfpc.mia(), dm.width(), dm.height(), k, l); 
+				
+				for (const auto& pixel : pixels)
+				{		
+					double sz = dm.depth(pixel.k, pixel.l);
+					if (sz == DepthInfo::NO_DEPTH) continue;	
+					
+					if (dm.is_metric_depth()) 
+					{
+						const P2D idx = mfpc.mi2ml(k, l);
+						sz = mfpc.obj2v(dm.depth(pixel.k, pixel.l), idx(0), idx(1));
+					}
+					
+					//get neighbors
+				 	NeighborsIndexes neighs = neighbors(mfpc.mia(), k, l, sz, sz); 	
+					
+					std::vector<double> depths; depths.reserve(neighs.size()+1);
+					depths.emplace_back(sz);
+					
+					for(auto&n : neighs) 
+					{
+						const P2D disparity = mfpc.disparity(k, l, n.k, n.l, sz);
+						const std::size_t nk = static_cast<std::size_t>(pixel.k - disparity[0]); 
+						const std::size_t nl = static_cast<std::size_t>(pixel.l - disparity[1]); 
+						
+						if (double nd = dm.depth(nk, nl); nd != DepthInfo::NO_DEPTH) depths.emplace_back(nd);
+					}
+				
+					const double medd = median(depths);
+					
+					if (depths.size() < 4 or std::fabs(medd - sz) > threshold) filtereddm.depth(pixel.k, pixel.l) = DepthInfo::NO_DEPTH;	
+				}					
+			}
+		}
+	}	
+	
+	return filtereddm;
+}
+
+void inplace_consistency_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double threshold)
+{	
+	const DepthMap temp = consistency_filter_depth(dm, mfpc, threshold);
+	temp.copy_to(dm);
+}
+
+//******************************************************************************
+//******************************************************************************
+/* E(I,Z)= min I(Z) */ 
+DepthMap morph_erosion_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	const auto& mia = mfpc.mia();
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm}; //depths are copied
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.width()-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.height()-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for (std::size_t k = kmin; k < kmax; ++k)
+	{
+		for (std::size_t l = lmin; l < lmax; ++l)
+		{
+			//get neighbors
+	 		NeighborsIndexes neighs;
+	 		
+	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(mia, k, l);
+	 		else neighs = neighbors(mia, k, l, size, size); 
+	 		
+	 		for (auto& n: neighs)
+	 		{
+	 			if (filtereddm.depth(k,l) > dm.depth(n.k,n.l) and dm.depth(n.k,n.l) != DepthInfo::NO_DEPTH) //FIXME
+	 			{
+	 				filtereddm.depth(k,l) = dm.depth(n.k,n.l);
+	 			}
+	 		}
+		}
+	}
+	
+	return filtereddm;	
+}
+void inplace_morph_erosion_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const DepthMap temp = morph_erosion_filter_depth(dm, mfpc, size);
+	temp.copy_to(dm);
+} 
+
+//******************************************************************************
+/* D(I,Z)= max I(Z) */ 
+DepthMap morph_dilation_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	const auto& mia = mfpc.mia();
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm}; //depths are copied
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.width()-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.height()-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for (std::size_t k = kmin; k < kmax; ++k)
+	{
+		for (std::size_t l = lmin; l < lmax; ++l)
+		{
+			//get neighbors
+	 		NeighborsIndexes neighs;
+	 		
+	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(mia, k, l);
+	 		else neighs = neighbors(mia, k, l, size, size); 
+	 		
+	 		for (auto& n: neighs)
+	 		{
+	 			if (filtereddm.depth(k,l) < dm.depth(n.k,n.l))
+	 			{
+	 				filtereddm.depth(k,l) = dm.depth(n.k,n.l);
+	 			}
+	 		}
+		}
+	}
+	
+	return filtereddm;	
+}
+void inplace_morph_dilation_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const DepthMap temp = morph_dilation_filter_depth(dm, mfpc, size);
+	temp.copy_to(dm);
+} 
+
+//******************************************************************************
+/* O(I,Z)= D(E(I,Z),Z) */ 
+DepthMap morph_opening_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filteredd
