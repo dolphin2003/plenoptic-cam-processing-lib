@@ -629,4 +629,146 @@ DepthMap morph_opening_filter_depth(const DepthMap& dm, const PlenopticCamera& m
 {	
 	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
 	
-	DepthMap filteredd
+	DepthMap filtereddm{dm};
+	inplace_morph_opening_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;
+} 
+void inplace_morph_opening_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_morph_erosion_filter_depth(dm, mfpc, size);
+	inplace_morph_dilation_filter_depth(dm, mfpc, size);
+} 
+
+//******************************************************************************
+/* C(I,Z)= E(D(I,Z),Z) */ 
+DepthMap morph_closing_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm};
+	inplace_morph_closing_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;
+} 
+void inplace_morph_closing_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_morph_dilation_filter_depth(dm, mfpc, size);
+	inplace_morph_erosion_filter_depth(dm, mfpc, size);
+} 
+
+//******************************************************************************
+/* S(I,Z)= C(O(I,Z),Z) */ 
+DepthMap morph_smoothing_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+
+	DepthMap filtereddm{dm};
+	inplace_morph_smoothing_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;
+} 
+void inplace_morph_smoothing_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_morph_opening_filter_depth(dm, mfpc, size);
+	inplace_morph_closing_filter_depth(dm, mfpc, size);
+} 
+
+//******************************************************************************
+/* DYT(I,Z) = 0.5 * (E(I,Z) + D(I,Z)) */
+DepthMap morph_dyt_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm};
+	inplace_morph_dyt_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;
+} 
+void inplace_morph_dyt_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const DepthMap edm = morph_erosion_filter_depth(dm, mfpc, size);
+	const DepthMap ddm = morph_dilation_filter_depth(dm, mfpc, size);
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.width()-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.height()-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for (std::size_t k = kmin; k < kmax; ++k)
+	{
+		for (std::size_t l = lmin; l < lmax; ++l)
+		{
+			dm.depth(k,l) = 0.5 * (edm.depth(k,l) + ddm.depth(k,l));
+		}
+	}
+} 
+
+//******************************************************************************
+/* TET(I,Z) = 0.5 * (O(I,Z) + C(I,Z)) */
+DepthMap morph_tet_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm};
+	inplace_morph_tet_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;	
+} 
+void inplace_morph_tet_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const DepthMap odm = morph_opening_filter_depth(dm, mfpc, size);
+	const DepthMap cdm = morph_closing_filter_depth(dm, mfpc, size);
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.width()-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.height()-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for (std::size_t k = kmin; k < kmax; ++k)
+	{
+		for (std::size_t l = lmin; l < lmax; ++l)
+		{
+			dm.depth(k,l) = 0.5 * (odm.depth(k,l) + cdm.depth(k,l));
+		}
+	}
+} 
+
+//******************************************************************************
+/* OCCO(I,Z) = 0.5 * (O(C(I,Z),Z) + C(O(I,Z),Z)) */
+DepthMap morph_occo_filter_depth(const DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap filtereddm{dm}; //depths are copied
+	inplace_morph_occo_filter_depth(filtereddm, mfpc, size);
+	
+	return filtereddm;	
+} 
+void inplace_morph_occo_filter_depth(DepthMap& dm, const PlenopticCamera& mfpc, double size)
+{
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	DepthMap ocdm = morph_closing_filter_depth(dm, mfpc, size);
+	inplace_morph_opening_filter_depth(ocdm, mfpc, size);
+	
+	DepthMap codm = morph_opening_filter_depth(dm, mfpc, size);
+	inplace_morph_closing_filter_depth(codm, mfpc, size);
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.width()-ma
