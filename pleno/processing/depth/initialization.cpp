@@ -168,4 +168,123 @@ IndexPair initialize_kl(std::size_t ith, std::size_t nbthread, const MIA& mia, I
 				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4);
 				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4);
 				//
-				v.emplace_back(kmin 
+				v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
+				break;
+			}
+			case (11): {
+				v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				//
+				v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 2 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 2 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 2 * (lmax-lmin)/4);
+				//
+				v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				break;
+			}
+			case (12): {
+				v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
+				//
+				v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4); 
+				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/4);
+				//
+				v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
+				break;
+			}
+			default: {
+				ith = 0;
+				std::uniform_int_distribution<std::size_t> distk(kmin, kmax);
+				std::uniform_int_distribution<std::size_t> distl(lmin, lmax);
+			
+				v.emplace_back(distk(mt), distk(mt));
+				break;
+			}
+		}
+		return v[ith];
+	}
+	else
+	{ 
+		return {0,0};
+	}
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void initialize_depth(
+	DepthHypothesis& hypothesis,
+	//--------------------------------------------------------------------------
+	const NeighborsIndexes& neighs, 
+	const PlenopticCamera& mfpc, const Image& scene, 
+	const DepthEstimationStrategy& strategies
+)
+{
+	constexpr double nbsupplsample = 5.; 
+	
+#if USE_SAME_SEED 
+    static thread_local std::mt19937 mt;
+#else
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 mt(rd());
+#endif
+	
+	const double stepv = (hypothesis.max - hypothesis.min) / hypothesis.precision;
+	const double stepz = (mfpc.v2obj(hypothesis.min) - mfpc.v2obj(hypothesis.max)) / hypothesis.precision;
+	
+	hypothesis.max += nbsupplsample * stepv; //goes beyond to eliminate wrong hypotheses
+	
+	//add uniform perturbation on min distance
+	if (strategies.randomize)
+	{
+		std::uniform_real_distribution<double> perturbation(-stepv / 2., stepv / 2.);
+		hypothesis.min += perturbation(mt);	
+	}
+	
+	//ensure strategy is not based on optim for init
+	SearchStrategy search = strategies.search;
+	if (search == SearchStrategy::NONLIN_OPTIM) 
+	{
+		search = SearchStrategy::GOLDEN_SECTION;
+	}
+	
+	if (search == SearchStrategy::BRUTE_FORCE)
+	{
+		hypothesis.precision = strategies.metric ? stepz : stepv;
+		
+		bruteforce_depth(
+			hypothesis,
+			neighs, mfpc, scene, 
+			strategies
+		);	
+	}
+	else if (search == SearchStrategy::GOLDEN_SECTION) 
+	{
+		hypothesis.precision = strategies.metric ? 1. : std::sqrt(0.1);
+				
+		gss_depth(
+			hypothesis,
+			neighs, mfpc, scene, 
+			strategies
+		);		
+	}
+	else 
+	{
+		PRINT_WARN("No initialization implemented for " << search);
+	}
+	//PRINT_DEBUG("Initial depth hypothesis at ("<< ck << ", " << cl <<") = " << depth.v);
+}
