@@ -111,4 +111,77 @@ std::string to_string(const BeliefPropagationStrategy& mode)
 void from_string(const std::string& mode, BeliefPropagationStrategy& strat)
 {
 	if (mode == to_string(BeliefPropagationStrategy::NONE)) strat = BeliefPropagationStrategy::NONE;
-	else if 
+	else if (mode == to_string(BeliefPropagationStrategy::FIRST_RING)) strat = BeliefPropagationStrategy::FIRST_RING;
+	else if (mode == to_string(BeliefPropagationStrategy::ALL_NEIGHS)) strat = BeliefPropagationStrategy::ALL_NEIGHS;
+	else strat = BeliefPropagationStrategy::NONE;
+}
+
+//******************************************************************************
+std::ostream& operator<<(std::ostream& os, const ObservationsPairingStrategy& mode)
+{
+	os << "Observations pairing strategy = ";
+	switch(mode)
+	{
+		case ObservationsPairingStrategy::CENTRALIZED: os << "Centralized from ref"; break;
+		case ObservationsPairingStrategy::ALL_PAIRS: os << "All possible combinations"; break;
+	}
+	return os;
+}
+std::string to_string(const ObservationsPairingStrategy& mode)
+{
+	if (mode == ObservationsPairingStrategy::CENTRALIZED) return "CENTRALIZED";
+	else if (mode == ObservationsPairingStrategy::ALL_PAIRS) return "ALL_PAIRS";
+	else return "CENTRALIZED";
+}
+void from_string(const std::string& mode, ObservationsPairingStrategy& strat)
+{
+	if (mode == to_string(ObservationsPairingStrategy::CENTRALIZED)) strat = ObservationsPairingStrategy::CENTRALIZED;
+	else if (mode == to_string(ObservationsPairingStrategy::ALL_PAIRS)) strat = ObservationsPairingStrategy::ALL_PAIRS;
+	else strat = ObservationsPairingStrategy::CENTRALIZED;
+}
+
+//******************************************************************************
+std::ostream& operator<<(std::ostream& os, const SearchStrategy& mode)
+{
+	os << "Depth search strategy = ";
+	if (mode == SearchStrategy::NONLIN_OPTIM) os << "Non-linear optimization (LM)";
+	if (mode == SearchStrategy::BRUTE_FORCE) os << "Brute-Force search";
+	if (mode == SearchStrategy::GOLDEN_SECTION) os << "Golden-Section search (GSS)";
+	return os;
+}
+std::string to_string(const SearchStrategy& mode)
+{
+	if (mode == SearchStrategy::NONLIN_OPTIM) return "NONLIN_OPTIM";
+	else if (mode == SearchStrategy::BRUTE_FORCE) return "BRUTE_FORCE";
+	else if (mode == SearchStrategy::GOLDEN_SECTION) return "GOLDEN_SECTION";
+	else return "GOLDEN_SECTION";
+}
+void from_string(const std::string& mode, SearchStrategy& strat)
+{
+	
+	if (mode == to_string(SearchStrategy::NONLIN_OPTIM)) strat = SearchStrategy::NONLIN_OPTIM;
+	else if (mode == to_string(SearchStrategy::BRUTE_FORCE)) strat = SearchStrategy::BRUTE_FORCE;
+	else if (mode == to_string(SearchStrategy::GOLDEN_SECTION)) strat = SearchStrategy::GOLDEN_SECTION;
+	else strat = SearchStrategy::GOLDEN_SECTION;
+}
+
+//******************************************************************************
+std::ostream& operator<<(std::ostream& os, const DepthEstimationStrategy& mode)
+{
+	os  << "Depth estimation strategies: " << std::endl
+		<< "\t" << mode.init << std::endl
+		<< "\t" << mode.pairing << std::endl
+		<< "\t" << mode.belief << std::endl
+		<< "\t" << mode.search << std::endl
+		<< "\tvmin = " << mode.vmin << ", vmax = " << mode.vmax << std::endl
+		<< std::boolalpha 
+		<< "\tmetricspace = " << mode.metric << std::endl
+		<< "\tprobabilistic = " << mode.probabilistic << std::endl
+		<< "\tfilter = " << mode.filter << std::endl
+		<< "\trandomize = " << mode.randomize
+		<< std::noboolalpha;
+
+	return os;
+}
+
+
