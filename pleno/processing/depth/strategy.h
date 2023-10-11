@@ -40,4 +40,27 @@ void load(v::InputArchive& archive, DepthEstimationStrategy& strategies);
 
 //******************************************************************************
 //******************************************************************************
-//***********************************
+//******************************************************************************
+std::ostream& operator<<(std::ostream& os, const InitStrategy& mode);
+std::string to_string(const InitStrategy& mode);
+void from_string(const std::string & mode, InitStrategy& strat);
+//******************************************************************************
+
+std::ostream& operator<<(std::ostream& os, const BeliefPropagationStrategy& mode);
+std::string to_string(const BeliefPropagationStrategy& mode);
+void from_string(const std::string & mode, BeliefPropagationStrategy& strat);
+//******************************************************************************
+
+std::ostream& operator<<(std::ostream& os, const ObservationsPairingStrategy& mode);
+std::string to_string(const ObservationsPairingStrategy& mode);
+void from_string(const std::string & mode, ObservationsPairingStrategy& strat);
+//******************************************************************************
+
+std::ostream& operator<<(std::ostream& os, const SearchStrategy& mode);
+std::string to_string(const SearchStrategy& mode);
+void from_string(const std::string & mode, SearchStrategy& strat);
+//******************************************************************************
+
+std::ostream& operator<<(std::ostream& os, const DepthEstimationStrategy& mode);
+
+
