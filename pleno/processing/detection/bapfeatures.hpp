@@ -105,4 +105,13 @@ BAPObservations compute_bapfeatures(const InputObservations_t& cbos, const MIA& 
 				PRINT_ERR("No enought observations to compute virtual depth of cluster ("<<c<<")");
 				continue;
 			}
-			PRINT_DEBUG("Estimate virtua
+			PRINT_DEBUG("Estimate virtualdepth of cluster ("<<c<<")");	
+			double v = compute_virtualdepth(obs, mia, params);
+				
+			PRINT_DEBUG("Update observations");
+			update_observations(obs, bapobs, v, mia, params);
+		}
+	}
+	bapobs.shrink_to_fit();
+	return bapobs;
+}
