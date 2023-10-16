@@ -152,4 +152,16 @@ CBObservations clusterize(const CBObservations& obs, double eps, std::size_t min
 			{				
 				RENDER_DEBUG_2D(
 		  			Viewer::context().layer(Viewer::layer())
-		  				
+		  				.name("clusters_filtered")
+		  				.pen_color(palette[o.cluster]).pen_width(8),
+		  			P2D{o[0], o[1]}
+				);	
+			}
+		
+			Viewer::update();
+		);
+	}
+	
+	filtered.shrink_to_fit();
+	return filtered;
+}
