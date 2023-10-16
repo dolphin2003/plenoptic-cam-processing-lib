@@ -297,4 +297,87 @@ detection_corners(const Image& raw, const MIA& mia, const InternalParameters& pa
 	{
 		auto& cbo = obs[i];
 		
-		const int k = cb
+		const int k = cbo.k; 
+		const int l = cbo.l;
+		
+		const P2D c = mia.nodeInWorld(k,l); //col,row
+		const int t = mia.type(params.I, k,l); //static_cast<int>(std::fmod(std::fmod(l,2)+k, 3)); //k=col, l=row
+		const double r = std::fabs(params.I > 1ul ? mia.radius() : params.radius(t)); //radius
+		
+		//crop image aroud the center
+		double X = c[0], Y = c[1]; 
+
+	//2.1) EXTRACT ROI			
+		Image observation = extract_roi(img, X, Y, roiw-roipadding, roih-roipadding).clone(); //crop
+		//trim(observation, r, -1. );
+		observation.convertTo(observation, CV_64FC1);
+			
+	//2.2) COMPUTE MASK
+		Image mask{observation.rows, observation.cols, CV_8UC1, cv::Scalar{255}};
+		trim(mask, r, - 2. * mia.border());	//trim(mask, r, - 2. * mia.border());	
+		mask.convertTo(mask, CV_64FC1);
+		
+	//2.3) GENERATE MODEL 00
+		const double meancolor = cv::mean(observation)[0];
+  		double residuals[2];
+        Transformation Ts[2];
+		
+  		MicroImageModel model{CORNER, static_cast<double>(observation.cols), static_cast<double>(observation.rows)};
+  		
+  		//set inital conditions
+  		{
+	  		model.colors[0] = meancolor / 2.;
+	  		model.colors[1] = meancolor + (255. - meancolor) / 2.;
+	  		model.center = P2D{c[0]-X, c[1]-Y};
+	  		
+	  		// run optimization
+		    Ts[0] = optimize(observation, model.generate(), mask, residuals[0]);
+		}
+		//try again with inverse intial conditions	
+		{
+			std::swap(model.colors[0], model.colors[1]); 
+	  		model.center = P2D{c[0]-X, c[1]-Y};
+	  		
+	  		// run optimization
+			Ts[1] = optimize(observation, model.generate(), mask, residuals[1]);
+		}
+				
+		const double residual = (residuals[0] < residuals[1]) ? residuals[0] : residuals[1] ;
+		const Transformation T = (residuals[0] < residuals[1]) ? Ts[0] : Ts[1] ;
+
+        //Computing the detected corner position in the micro-image coordinate system
+        const P2D corner = (T().inverse() * model.center.homogeneous()).head(2);
+        
+        auto is_accepted = [&](const P2D& corner_) -> bool { 
+        	return (residual < 1e6 and std::hypot(c[0]-X - corner_[0], c[1]-Y - corner_[1]) < r - 2. * mia.border());
+        };
+        
+        //check if inside and residual not too hight
+        if(is_accepted(corner))
+        {
+        	cbo[0] = X+corner[0];
+        	cbo[1] = Y+corner[1]; 
+        	cbo.isValid = true;
+        }
+      	else
+    	{
+	    	cbo.isValid = false;
+	    	PRINT_DEBUG("Observation ("<<k<<", "<<l<<") discarded.");
+    	}
+	}
+	
+	DEBUG_VAR(obs.size());
+	obs.erase(
+		std::remove_if(obs.begin(), obs.end(), [](CheckerBoardObservation& cbo){return (not cbo.isValid);}),
+		obs.end()
+	);
+	DEBUG_VAR(obs.size());
+	
+//3) Clusterize micro-image, and remove outlier	
+	PRINT_INFO("=== Clusterizing observations and removing outliers");
+FORCE_GUI(true);
+	CBObservations filtered = clusterize(obs, radius*2.2, 2u, true);
+FORCE_GUI(false);
+
+	return filtered;
+};
