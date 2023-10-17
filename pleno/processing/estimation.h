@@ -55,4 +55,10 @@ estimation_plane_fitting(
 Plane
 estimation_plane_ransac(
 	const P3DS& pts,
-	doub
+	double threshold, //Threshold value to determine data points that are fit well by model.
+	std::size_t n = 50ul, //Minimum number of data points required to estimate model parameters.
+	std::size_t k = 100ul, //Maximum number of iterations allowed in the algorithm.
+	std::size_t d = 50ul //Number of close data points required to assert that a model fits well to data.
+);
+
+
