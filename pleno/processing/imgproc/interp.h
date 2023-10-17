@@ -12,4 +12,14 @@ bool warp(const Transformation& t, const Image& input, Image& output);
 
 ////////////////////////////////////////////////////////////////////////////////
 struct GrayInterpolator {
-    co
+    const Image& mask;
+
+    bool is_valid(const P2D& pixel) const;
+
+    double intensity(const Image& image, const P2D& pixel) const;
+
+    // Computing nearest rounded values neighbors of a point
+    P2DS neighbors(const P2D& pixel) const;
+
+    double operator()(const Image& image, const P2D& pixel) const;
+};
