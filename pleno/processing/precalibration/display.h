@@ -13,4 +13,4 @@ void hist_radii(const std::vector<MicroImage>& data);
 // DISPLAYS - data
 ////////////////////////////////////////////////////////////////////////////////
 void display_data(const std::vector<P2D>& pts, const LineCoefficients& coefs, Image& out);
-void display_all_data(const std::vector<std::vector<P2D>>& data, 
+void display_all_data(const std::vector<std::vector<P2D>>& data, const std::vector<LineCoefficients>& coefs, Image& out);
