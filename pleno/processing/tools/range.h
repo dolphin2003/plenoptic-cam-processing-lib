@@ -40,3 +40,27 @@ struct Range
         return *std::next(container.begin(), indexes.begin_index + i);
     };
 
+    auto& operator[](const int i)
+    {
+        assert(i >= 0 && i <= indexes.size() - 1 && "Range::operator[]: out of range.");
+        return *std::next(container.begin(), indexes.begin_index + i);
+    };
+};
+
+template<typename T>
+Range<T> range(T& container, int begin, int end)
+{
+    return Range<T>{container, begin, end};
+}
+
+template<typename T>
+Range<T&&> range(T&& container, int begin, int end)
+{
+    return Range<T&&>{container, begin, end};
+}
+
+template<typename T>
+Range<T> range(T& container)
+{
+   return Range<T>{container, 0, (int)container.size()};
+}
