@@ -41,4 +41,22 @@ struct LessThanComparable
   /// Less
   /// \param other An object compatible with \e this.
   /// \returns True if \e this is less than \e other.
-  bool operator<(cons
+  bool operator<(const X &other) const;
+
+  /// Greater
+  /// \param other An object compatible with \e this.
+  /// \returns True if \e this is greater than \e other.
+  bool operator>(const X &other) const;
+
+  /// Less or equal
+  /// \param other An object compatible with \e this.
+  /// \returns True if \e this is not greater than \e other.
+  bool operator<=(const X &other) const;
+
+  /// Greater or equal
+  /// \param other An object compatible with \e this.
+  /// \returns True if \e this is not less than \e other.
+  bool operator>=(const X &other) const;
+};
+
+}
