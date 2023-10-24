@@ -41,3 +41,22 @@ std::multimap<int, void *> *get_codecs(const char *type_1, const char *type_2)
 std::string demangle(const std::type_info &type)
 {
 
+#if defined(_HAS_CXXABI_H)
+
+  char *name = abi::__cxa_demangle(type.name(), 0, 0, 0);
+
+  if(name)
+  {
+    std::string copy = name;
+    free(name);
+    return copy;
+  }
+
+#endif
+
+  return type.name();
+}
+
+}
+}
+}
