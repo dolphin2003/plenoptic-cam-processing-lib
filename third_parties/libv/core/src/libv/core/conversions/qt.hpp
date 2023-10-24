@@ -61,4 +61,26 @@ convert(const ImageU8r &src, const Wrapper<QImage> *)
   };
   static const QVector<QRgb> colors = Private::init_colors();
   QImage image((uchar *) src.data(), int(src.width()), int(src.height()), int(src.row_step()), QImage::Format_Indexed8);
-  image.se
+  image.setColorTable(colors);
+  return image;
+}
+
+/// Convert an Image to a QImage.
+inline QImage
+convert(const ImageRGBU8r &src, const Wrapper<QImage> *)
+{
+  return QImage((uchar *) src.data(), int(src.width()), int(src.height()), int(src.row_step()), QImage::Format_RGB888);
+}
+
+/// Convert an Image to a QImage.
+inline QImage
+convert(const ImageBGRAU8r &src, const Wrapper<QImage> *)
+{
+  return QImage((uchar *) src.data(), int(src.width()), int(src.height()), int(src.row_step()), QImage::Format_ARGB32);
+}
+
+/// \}
+}}
+
+#endif
+#endif
