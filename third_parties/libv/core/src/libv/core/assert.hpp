@@ -19,34 +19,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef LIBV_CORE_ALGORITHM_MOVE_IF_HPP
-#define LIBV_CORE_ALGORITHM_MOVE_IF_HPP
+#include <cassert>
 
-#include "copy_if.hpp"
-#include "erase_if.hpp"
+#include "global.hpp"
 
-namespace v {
-namespace core {
-/// \addtogroup algorithms
+/// \addtogroup logger
 /// \{
 
-/**
+/// Check that a condition is true at run time.
+/// This macro behaves just like \c assert(), but the function in which you use it gets free automatic documentation as a bonus.
+#define V_PRECONDITION(_test) /** \pre \code _test \endcode */ assert(_test);
 
-Move elements that satisfy a predicate into another container.
-
-\param in An input range.
-\param out An output iterator.
-\param predicate A predicate.
-
-*/
-template<class T1, class T2, class F> void
-move_if(T1 &in, const T2 &out, const F &predicate)
-{
-  copy_if(in, out, predicate);
-  erase_if(in, predicate);
-}
+/// \copydoc V_PRECONDITION
+#define V_POSTCONDITION(_test) /** \post \code _test \endcode */ assert(_test);
 
 /// \}
-}}
-
-#endif

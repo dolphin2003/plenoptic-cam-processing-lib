@@ -1,8 +1,8 @@
 /**
 
 \file
-\author Alexis Wilhelm (2013)
-\copyright 2013 Institut Pascal
+\author Alexis Wilhelm (2013-2014)
+\copyright 2013-2014 Institut Pascal
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -19,34 +19,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef LIBV_CORE_ALGORITHM_MOVE_IF_HPP
-#define LIBV_CORE_ALGORITHM_MOVE_IF_HPP
+#include <libv/core/auto_load.hpp>
 
-#include "copy_if.hpp"
-#include "erase_if.hpp"
+#if defined(__GLIBCXX__) || defined(__GLIBCPP__)
+  #define _HAS_CXXABI_H
+#endif
+#if defined(_HAS_CXXABI_H)
+  #include <cxxabi.h>
+#endif
 
 namespace v {
 namespace core {
-/// \addtogroup algorithms
-/// \{
+namespace auto_load_ {
 
-/**
-
-Move elements that satisfy a predicate into another container.
-
-\param in An input range.
-\param out An output iterator.
-\param predicate A predicate.
-
-*/
-template<class T1, class T2, class F> void
-move_if(T1 &in, const T2 &out, const F &predicate)
+std::multimap<int, void *> *get_codecs(const char *type_1, const char *type_2)
 {
-  copy_if(in, out, predicate);
-  erase_if(in, predicate);
+  static std::map<std::pair<std::string, std::string>, std::multimap<int, void *> > codecs;
+  return &codecs[std::make_pair(type_1, type_2)];
 }
 
-/// \}
-}}
+std::string demangle(const std::type_info &type)
+{
 
-#endif
