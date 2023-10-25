@@ -1,8 +1,8 @@
 /**
 
 \file
-\author Alexis Wilhelm (2012-2013)
-\copyright 2012-2013 Institut Pascal
+\author Alexis Wilhelm (2013)
+\copyright 2013 Institut Pascal
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -19,29 +19,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef LIBV_CORE_IMAGE_STORAGE_HPP
-#define LIBV_CORE_IMAGE_STORAGE_HPP
+#ifndef LIBV_CORE_ITERATOR_ITERATOR_TRAITS_HPP
+#define LIBV_CORE_ITERATOR_ITERATOR_TRAITS_HPP
+
+#include <iterator>
+#include <libv/core/type_traits/has_type.hpp>
 
 namespace v {
 namespace core {
-namespace image_ {
+/// \addtogroup type_traits
+/// \{
 
-/// When all dimensions are known at compile time.
-template<class T, int n>
-struct image_storage_type
-{
-  /// Result
-  typedef T type[n];
-};
+/// Just like \c std::iterator_traits, but better.
+/// More specifically, it works with \c std::back_insert_iterator and other iterators that define \c container_type.
+template<class T, bool = has_container_type<T>::value>
+struct iterator_traits: std::iterator_traits<T> {};
 
-/// When some dimensions are dynamic.
+/// \copydoc iterator_traits
 template<class T>
-struct image_storage_type<T, 0>
-{
-  /// Result
-  typedef T *type;
-};
+struct iterator_traits<T, true>: std::iterator_traits<typename T::container_type::iterator> {};
 
-}}}
+/// \}
+}}
 
 #endif
