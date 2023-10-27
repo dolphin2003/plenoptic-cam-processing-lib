@@ -83,4 +83,98 @@ Quand on préfixe les messages de debug par le chemin vers le fichier d'où ils 
 Pour alléger l'affichage, on raccourcit ce chemin en ne gardant que le nom du fichier.
 
 */
-const char *shorten_file_name(const cha
+const char *shorten_file_name(const char *full)
+{
+  const char *shortened = std::strrchr(full, '/');
+  return shortened ? shortened + 1 : full;
+}
+
+/*******************************************************************//**
+
+\class Profiler
+
+Mesure le temps d'exécution d'une portion de programme.
+
+Cette classe ne doit pas être utilisée directement.
+Utilisez la macro #V_PROFILER à la place.
+
+\def V_PROFILER
+
+Instancie un \ref v::core::Profiler "Profiler" pour mesurer le temps d'exécution d'une portion de programme.
+
+Les temps mesurés et les statistiques sont affichées quand le programme se termine.
+
+Par exemple, insérer cette ligne dans src/file.cpp :
+\code
+  V_PROFILER(my_profiler);
+\endcode
+affichera, à la fin du programme :
+\code
+  src/file.cpp:99: my_profiler: calls=8 mean=0.000113148 max=0.000623207 total=0.000905188
+\endcode
+
+Cette macro instancie une variable `var`.
+On commence à chronométrer dès que cette variable est instanciée, et on arrête quand elle est détruite (elle est détruite automatiquement quand elle devient hors portée).
+
+Dans certains cas, on peut vouloir arrêter de chronométrer manuellement : dans ce cas on utilise `var.stop()`.
+Pour recommencer à chronométrer, on peut utiliser `var.start()`.
+
+\param var
+Le nom de la variable qui sera instanciée.
+On pourra utiliser cette variable pour appeler les fonctions stop() et start() si nécessaire.
+
+***********************************************************************/
+
+/**
+
+Initialise un profiler et commence à chronométrer.
+
+*/
+Profiler::Profiler(const char *id)
+: id_{id}
+, begin_{0}
+{
+  start();
+}
+
+/**
+
+Arrête de chronométrer quand ce profiler est détruit.
+
+*/
+Profiler::~Profiler()
+{
+  if(begin_)
+  {
+    stop();
+  }
+}
+
+/**
+
+Recommence à chronométrer.
+
+*/
+void Profiler::start()
+{
+  begin_ = Time::now().time_since_epoch().count();
+}
+
+/**
+
+Arrête de chronométrer.
+
+*/
+void Profiler::stop()
+{
+  const Time::duration d = Time::now() - Time::time_point{Time::duration{begin_}};
+  static Data data;
+  Tuple &p = data[id_];
+  ++p.count;
+  p.total += d;
+  if(d > p.max) p.max = d;
+  begin_ = 0;
+}
+
+}
+}
