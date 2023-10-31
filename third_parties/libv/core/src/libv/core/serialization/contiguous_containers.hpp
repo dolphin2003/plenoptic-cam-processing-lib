@@ -73,4 +73,73 @@ template<class T, size_t n>
 void load
 ( InputArchive &archive ///< An archive.
 , std::array<T, n> *values ///< A list of arrays.
-, const size_t *extents ///<
+, const size_t *extents ///< A list of extents.
+, size_t rank ///< The rank of the array.
+)
+{
+  load(archive, values->data(), extents, rank + 1);
+}
+
+/// \copydoc save_contiguous_container()
+template<class T, size_t n>
+void save
+( OutputArchive &archive ///< An archive.
+, const std::array<T, n> *values ///< A list of arrays.
+, size_t *extents ///< A list of extents.
+, size_t rank ///< The rank of the array.
+)
+{
+  extents[rank] = values->size();
+  save(archive, values->data(), extents, rank + 1);
+}
+
+template<class T, class O, class A>
+struct SerializableTraits<std::basic_string<T, O, A> >: new_serializable_traits<T, 1, 0> {};
+
+/// \copydoc load_contiguous_container()
+template<class T, class O, class A>
+void load
+( InputArchive &archive ///< An archive.
+, std::basic_string<T, O, A> &value ///< A container.
+)
+{
+  load_contiguous_container(archive, value);
+}
+
+/// \copydoc save_contiguous_container()
+template<class T, class O, class A>
+void save
+( OutputArchive &archive ///< An archive.
+, const std::basic_string<T, O, A> &value ///< A container.
+)
+{
+  save_contiguous_container(archive, value);
+}
+
+template<class T, class A>
+struct SerializableTraits<std::vector<T, A> >: new_serializable_traits<T, 1, 0> {};
+
+/// \copydoc load_contiguous_container()
+template<class T, class A>
+void load
+( InputArchive &archive ///< An archive.
+, std::vector<T, A> &value ///< A container.
+)
+{
+  load_contiguous_container(archive, value);
+}
+
+/// \copydoc save_contiguous_container()
+template<class T, class A>
+void save
+( OutputArchive &archive ///< An archive.
+, const std::vector<T, A> &value ///< A container.
+)
+{
+  save_contiguous_container(archive, value);
+}
+
+/// \}
+}}
+
+#endif
