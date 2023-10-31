@@ -300,4 +300,20 @@ void YamlOutputArchive::end_list()
     load_(nodes.top(), values, extents, rank);\
   }\
 \
-  void YamlOutputArchive::serialize
+  void YamlOutputArchive::serialize(T value)\
+  {\
+    save_(out, value);\
+    state.top() = YAML::Value;\
+  }\
+\
+  void YamlOutputArchive::serialize(const T *values, const size_t *extents, size_t rank)\
+  {\
+    save_(out, values, extents, rank);\
+    state.top() = YAML::Value;\
+  }\
+
+V_FOR_EACH_FUNDAMENTAL_TYPE(_)
+
+}}
+
+#endif
