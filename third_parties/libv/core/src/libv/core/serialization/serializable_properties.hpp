@@ -99,4 +99,9 @@ Helper macro for V_DEFINE_PROPERTIES.
 Define a \e Config class with introspection capabilities.
 
 */
-#defin
+#define V_DEFINE_CONFIG /** Parameters */ V_DEFINE_PROPERTIES(Config)
+
+/// \}
+}}
+
+#endif
