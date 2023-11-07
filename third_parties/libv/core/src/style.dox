@@ -1,0 +1,42 @@
+/**
+
+\page style Guide de style C++ à ISPR - Institut Pascal 
+\author Laurent Lequièvre (2010) Laurent Malaterre (2015)
+\brief ISPR : Imagerie, Systèmes de Perception, Robotique qui est une groupe de recherche au sein de l'institut Pascal
+\date 2011-11-23
+
+\section intro Un Guide de Style C++ à ISPR de l'Institut Pascal : Pourquoi ?
+
+Nous avons tous eu un jour des difficultés à rentrer dans le code d'un autre.
+Cette difficulté peut-être atténuée si tous les auteurs utilisent les mêmes règles dans leur code.
+Cette uniformité permet au lecteur qui bien souvent n'est pas l'auteur, d'être plus efficace car il dispose de repères et lui permettra une maintenance plus aisée.
+Bien évidemment cela n'enlève pas l'effort qu'il faut faire sur le fond.
+
+Il est donc important de mettre sur papier ces règles et que TOUS NOUS LES UTILISIONS.
+
+Le LASMEA demande de plus en plus à ses étudiants en thèse de produire un démonstrateur réaliste, prouvant le modèle théorique.
+Bien souvent, ce démonstrateur est utilisé d'une thèse à une autre, et donc repris par d'autres étudiants ou le service technique.
+Le fait de faire l'effort de structurer proprement son projet permet non seulement à son auteur d'y revenir dans le temps avec plus de facilité mais cela permet aussi de passer la main à d'autres collègues.
+
+Les habitudes sont bien ancrées, et bien souvent lorsque l'on démarre une activité on se dit que ce n'est pas la peine de faire cet effort de suite et que l'on aura le temps d'y revenir.
+Dans les fait, on y revient jamais et on se contente de ce que l'on a fait.
+
+On vous conseille donc de mettre en pratique ce guide de style dès le début.
+
+\section names Nommage
+
+Le respect de règles de nommage d'un code C++ est très important pour la lisibilité du code, mais aussi pour sa maintenance dans le temps.
+L'effort de nommage doit être fait dans tous les compartiments du code (nom de variables, de classes, de namespace, de constantes, de méthodes …).
+
+L'idée principale étant de donner un nom qui soit compréhensible rapidement par un autre lecteur que son créateur.
+
+Exemples :
+\code
+std::string nameOfSensor;			// BON
+QTcpServer *tcpServerCycab;		// BON
+int id_camera;				// BON – identifiant camera
+int nb_camera;				// BON – nombre total de camera
+
+int a1;						// MAUVAIS – Pas assez explicite
+int nerr;					// MAUVAIS – Ambigu (*)
+\endcode

@@ -57,4 +57,9 @@ _REGISTER_OVERFLOW_TYPE(uint32_t, uint64_t)
 /// \{
 
 /// A type slightly larger than \e T, so that multiplying by 4 does not cause overflow.
-template<class T> struct prevent
+template<class T> struct prevent_overflow: prevent_overflow_::prevent_overflow<T> {};
+
+/// \}
+}}
+
+#endif
