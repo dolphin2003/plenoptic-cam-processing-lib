@@ -39,4 +39,99 @@ struct Item
   v::RGBAU8 color;
 };
 
-LIBV_GRAPHIC_EXPORT void grow(
+LIBV_GRAPHIC_EXPORT void grow(std::vector<Item> &);
+LIBV_GRAPHIC_EXPORT void clean(std::vector<Item> &);
+
+}
+/// \addtogroup viewers
+/// \{
+
+/**
+
+Generate stable, unique colors for objects.
+
+A typical usage will look like this: \code
+
+  Palette<int> palette;
+
+  while(something_to_do)
+  {
+    for(auto object: objects)
+    {
+      RGBAU8 color = palette[object.id()];
+      ... // draw some shapes with this color
+    }
+    palette.clean();
+  }
+
+\endcode
+
+*/
+template<class T>
+class Palette
+{
+  std::vector<T> cached_objects_;
+  std::vector<palette_::Item> cached_colors_;
+
+public:
+
+  /**
+
+  Get the color of the given object.
+
+  \param x An object.
+  \return A color.
+
+  The algorithm to find the color of the given object is as follow:
+
+  */
+  v::RGBAU8
+  operator[](const T &x)
+  {
+    /// <ol>
+
+    /// <li> If we already have a color for this object, we just return this color.
+    for(size_t i = 0; i < cached_colors_.size(); ++i)
+    {
+      if(cached_objects_[i] == x)
+      {
+        cached_colors_[i].allocated = true;
+        return cached_colors_[i].color;
+      }
+    }
+
+    /// <li> If we have unused colors, we associate an unused color to this object.
+    for(size_t i = 0; i < cached_colors_.size(); ++i)
+    {
+      if(cached_colors_[i].free && !cached_colors_[i].allocated)
+      {
+        cached_objects_[i] = x;
+        cached_colors_[i].allocated = true;
+        return cached_colors_[i].color;
+      }
+    }
+
+    /// <li> If we have no more free slots, we need to generate a new color.
+    palette_::grow(cached_colors_);
+    cached_objects_.push_back(x);
+    return cached_colors_.back().color;
+
+    /// </ol>
+  }
+
+  /**
+
+  Forget old objects to make room for new ones.
+
+  */
+  void
+  clean(void)
+  {
+    palette_::clean(cached_colors_);
+  }
+};
+
+/// \}
+}}
+
+#endif
