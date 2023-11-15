@@ -116,3 +116,178 @@ _DEFINE_COMMAND(axes, (ViewerAxesType value), (value))
   _THAT.axes_type = value;
 }
 
+_DEFINE_COMMAND(background, (const v::RGBAU8 &value), (to_int(value)))
+{
+  _THAT.background_brush.setColor(QColor::fromRgba(value));
+}
+
+_DEFINE_COMMAND(on_click, (const std::function<void(float, float)> &callback), (callback))
+{
+  _THAT.on_click_ = callback;
+}
+
+_DEFINE_COMMAND_IMPLEMENTATION(update)
+{
+  _THAT.update();
+}
+
+_DEFINE_COMMAND_IMPLEMENTATION(clear)
+{
+  _LAYER.clear();
+}
+
+_DEFINE_COMMAND(show, (bool value), (*this, value))
+{
+  if(_LAYER.action_visibility)
+  {
+    _LAYER.action_visibility->setChecked(value);
+  }
+  else
+  {
+    _LAYER.visible = value;
+  }
+}
+
+_DEFINE_COMMAND(name, (const std::string &value), (*this, value))
+{
+  if(_LAYER.action_visibility)
+  {
+    _LAYER.action_visibility->setText(value.c_str());
+  }
+  else
+  {
+    _LAYER.action_visibility.reset(_THAT.menu_visibility->menu()->addAction(value.c_str()));
+    _LAYER.action_visibility->setCheckable(true);
+    _LAYER.action_visibility->setChecked(_LAYER.visible);
+    _LAYER.action_visibility->setData(context.layer());
+    _THIS.connect(_LAYER.action_visibility.get(), SIGNAL(toggled(bool)), SLOT(_show(bool)));
+    _THAT.menu_visibility->setVisible(true);
+  }
+}
+
+_DEFINE_COMMAND(interaction_mode, (InteractionMode value), (value))
+{
+  _THAT.controllers.actions()[value]->setChecked(true);
+}
+
+#undef _COMMANDS
+#define _COMMANDS (new_commands_[viewer()][layer()])
+
+_DEFINE_COMMAND(add_point, (float x, float y), (*this, x, y))
+{
+  const QPointF p(x, _(y));
+  _CONTEXT.points.append(p);
+  _LAYER.grow(p);
+}
+
+_DEFINE_COMMAND(add_line, (float x1, float y1, float x2, float y2), (*this, x1, y1, x2, y2))
+{
+  const QLineF a(x1, _(y1), x2, _(y2));
+  _CONTEXT.lines.append(a);
+  _LAYER.grow(a.p1());
+  _LAYER.grow(a.p2());
+}
+
+_DEFINE_COMMAND(add_rect, (float x, float y, float width, float height), (*this, x, y, width, height))
+{
+  const QRectF a(x, _(y), width, height);
+  _CONTEXT.rectangles.append(a);
+  _LAYER.grow(a);
+}
+
+_DEFINE_COMMAND(add_ellipse, (float x, float y, float rx, float ry), (*this, x, y, rx, ry))
+{
+  const Data::Ellipse data = {QPointF(x, _(y)), rx, ry};
+  _CONTEXT.ellipses.append(data);
+  const QPointF r(rx, ry);
+  _LAYER.grow(data.center + r);
+  _LAYER.grow(data.center - r);
+}
+
+_DEFINE_COMMAND(add_triangle, (float x1, float y1, float x2, float y2, float x3, float y3), (*this, x1, y1, x2, y2, x3, y3))
+{
+  QPolygonF p(3);
+
+  p[0].setX(x1);
+  p[0].setY(_(y1));
+
+  p[1].setX(x2);
+  p[1].setY(_(y2));
+
+  p[2].setX(x3);
+  p[2].setY(_(y3));
+
+  _CONTEXT.polygons.append(p);
+  _LAYER.grow(p.boundingRect());
+}
+
+_DEFINE_COMMAND(add_quad, (float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4), (*this, x1, y1, x2, y2, x3, y3, x4, y4))
+{
+  QPolygonF p(4);
+
+  p[0].setX(x1);
+  p[0].setY(_(y1));
+
+  p[1].setX(x2);
+  p[1].setY(_(y2));
+
+  p[2].setX(x3);
+  p[2].setY(_(y3));
+
+  p[3].setX(x4);
+  p[3].setY(_(y4));
+
+  _CONTEXT.polygons.append(p);
+  _LAYER.grow(p.boundingRect());
+}
+
+_DEFINE_COMMAND(add_arrow, (float x1, float y1, float x2, float y2, bool both), (*this, x1, y1, x2, y2, both))
+{
+  const QLineF a(x1, _(y1), x2, _(y2));
+  _CONTEXT.lines.append(a);
+  _LAYER.grow(a.p1());
+  _LAYER.grow(a.p2());
+
+  const Data::Arrow head = {QPointF(x2, _(y2)), std::atan2(_(y2 - y1), x2 - x1)};
+  _CONTEXT.arrows.append(head);
+  if(both)
+  {
+    const Data::Arrow tail = {QPointF(x1, _(y1)), head.angle + M_PI};
+    _CONTEXT.arrows.append(tail);
+  }
+}
+
+_DEFINE_COMMAND(add_image, (float x, float y, const v::ImageU8cr &image), (*this, x, y, (std::make_shared<v::Convertible_<v::ImageU8, QImage> >(image))))
+{
+  const Data::Image data = {QPointF(x, _(y)), image->convert().convertToFormat(QImage::Format_RGB32)};
+  _CONTEXT.images.append(data);
+  _LAYER.grow(QRectF(data.image.rect()).translated(data.position));
+}
+
+_DEFINE_COMMAND_OVERLOAD(add_image, (float x, float y, const v::ImageRGBU8cr &image), (*this, x, y, (std::make_shared<v::Convertible_<v::ImageRGBU8, QImage> >(image))))
+
+_DEFINE_COMMAND_OVERLOAD(add_image, (float x, float y, const v::ImageRGBAU8cr &image), (*this, x, y, (std::make_shared<v::Convertible_<v::ImageRGBAU8, QImage> >(to_bgra(image)))))
+
+_DEFINE_COMMAND(add_text, (float x, float y, const std::string &text), (*this, x, y, text))
+{
+  const Data::Text data = {QPointF(x, _(y)), QString::fromUtf8(text.c_str())};
+  _CONTEXT.texts.append(data);
+
+  QFont font;
+  font.setPixelSize(context.font_size_);
+  switch(context.font_style_)
+  {
+    case Normal: break;
+    case Bold: font.setBold(true); break;
+    case Italic: font.setItalic(true); break;
+  }
+  switch(context.font_family_)
+  {
+    case Arial: font.setFamily("Arial"); break;
+    case Times: font.setFamily("Times"); break;
+    case Courier: font.setFamily("Courier"); break;
+  }
+  QFontMetrics metrics(font);
+  const int height = metrics.height();
+  const int width = metrics.width(data.text);
+  switch(
