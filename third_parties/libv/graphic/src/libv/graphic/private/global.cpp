@@ -1,6 +1,7 @@
 /**
 
 \file
+Viewer-related machinery.
 \author Alexis Wilhelm (2013)
 \copyright 2013 Institut Pascal
 
@@ -19,53 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef LIBV_GRAPHIC_PRIVATE_DATA_HPP
-#define LIBV_GRAPHIC_PRIVATE_DATA_HPP
-
-#include <QImage>
-#include <functional>
+#include "global.hpp"
 
 namespace v {
 namespace graphic {
 namespace viewers_ {
 
-struct Data
-{
-  struct Arrow
-  {
-    QPointF point;
-    qreal angle;
-  };
-
-  struct Ellipse
-  {
-    QPointF center;
-    qreal rx, ry;
-  };
-
-  struct Image
-  {
-    QPointF position;
-    QImage image;
-  };
-
-  struct Text
-  {
-    QPointF position;
-    QString text;
-  };
-
-  QVector<QPointF> points;
-  QVector<QLineF> lines;
-  QVector<QRectF> rectangles;
-  QList<QPolygonF> polygons;
-  QList<Arrow> arrows;
-  QList<Ellipse> ellipses;
-  QList<Image> images;
-  QList<Text> texts;
-  QList<std::function<void()> > functions;
-};
+ViewerCommandList commands_;
+std::map<int, std::map<int, CommandList> > new_commands_;
+std::mutex mutex_;
 
 }}}
-
-#endif

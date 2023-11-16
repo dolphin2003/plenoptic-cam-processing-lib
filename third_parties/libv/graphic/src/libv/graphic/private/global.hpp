@@ -19,52 +19,34 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef LIBV_GRAPHIC_PRIVATE_DATA_HPP
-#define LIBV_GRAPHIC_PRIVATE_DATA_HPP
+#ifndef LIBV_GRAPHIC_PRIVATE_GLOBAL_HPP
+#define LIBV_GRAPHIC_PRIVATE_GLOBAL_HPP
 
-#include <QImage>
-#include <functional>
+#include <mutex>
+#include <libv/core/memory/polymorphic.hpp>
+
+#include "commands.hpp"
 
 namespace v {
 namespace graphic {
 namespace viewers_ {
 
-struct Data
-{
-  struct Arrow
-  {
-    QPointF point;
-    qreal angle;
-  };
+/// A list of commands.
+typedef std::vector<v::Polymorphic<AbstractCommand, sizeof(Commands)> > CommandList;
 
-  struct Ellipse
-  {
-    QPointF center;
-    qreal rx, ry;
-  };
+/// A list of layer-scope commands.
+typedef std::map<int, std::vector<CommandList> > LayerCommandList;
 
-  struct Image
-  {
-    QPointF position;
-    QImage image;
-  };
+/// A list of viewer-scope commands.
+typedef std::map<int, std::pair<CommandList, LayerCommandList> > ViewerCommandList;
 
-  struct Text
-  {
-    QPointF position;
-    QString text;
-  };
+/// Commands validated but not executed.
+extern ViewerCommandList commands_;
 
-  QVector<QPointF> points;
-  QVector<QLineF> lines;
-  QVector<QRectF> rectangles;
-  QList<QPolygonF> polygons;
-  QList<Arrow> arrows;
-  QList<Ellipse> ellipses;
-  QList<Image> images;
-  QList<Text> texts;
-  QList<std::function<void()> > functions;
-};
+extern std::map<int, std::map<int, CommandList> > new_commands_;
+
+/// This mutex protects the variables shared by \ref system.cpp and \ref viewer_context.cpp.
+extern std::mutex mutex_;
 
 }}}
 
