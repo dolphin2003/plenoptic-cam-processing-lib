@@ -290,4 +290,16 @@ _DEFINE_COMMAND(add_text, (float x, float y, const std::string &text), (*this, x
   QFontMetrics metrics(font);
   const int height = metrics.height();
   const int width = metrics.width(data.text);
-  switch(
+  switch(context.font_direction_)
+  {
+    case Horizontal: _LAYER.grow(QRectF(data.position.x(), data.position.y() - height, width, height)); break;
+    case Vertical: _LAYER.grow(QRectF(data.position.x(), data.position.y(), height, width)); break;
+  }
+}
+
+_DEFINE_COMMAND(add_opengl, (const std::function<void()> &function), (*this, function))
+{
+  _CONTEXT.functions.append(function);
+}
+
+}}
