@@ -77,4 +77,8 @@ Layer::grow(const QPointF &p)
 void
 Layer::grow(const QRectF &a)
 {
-  _CHECK(a.left() < -MAX || a.right() > MAX || a.t
+  _CHECK(a.left() < -MAX || a.right() > MAX || a.top() < -MAX || a.bottom() > MAX)
+  bounds |= a;
+}
+
+}}}
