@@ -137,4 +137,147 @@
   <action name="action_original_size">
    <property name="icon">
     <iconset resource="icons/icons.qrc">
-     <normaloff>:/zoom-original.svg</normaloff>:/zoom-
+     <normaloff>:/zoom-original.svg</normaloff>:/zoom-original.svg</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Original Size</string>
+   </property>
+   <property name="shortcut">
+    <string>O</string>
+   </property>
+  </action>
+  <action name="menu_visibility">
+   <property name="icon">
+    <iconset resource="icons/icons.qrc">
+     <normaloff>:/visibility.svg</normaloff>:/visibility.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Visibility</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="action_save_screenshot">
+   <property name="icon">
+    <iconset resource="icons/icons.qrc">
+     <normaloff>:/camera-photo.svg</normaloff>:/camera-photo.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Save &amp;Screenshot</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="action_save_video">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="icons/icons.qrc">
+     <normaloff>:/camera-video.svg</normaloff>:/camera-video.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Save &amp;Video</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+V</string>
+   </property>
+  </action>
+  <action name="menu_options">
+   <property name="icon">
+    <iconset resource="icons/icons.qrc">
+     <normaloff>:/options.svg</normaloff>:/options.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Options</string>
+   </property>
+  </action>
+  <action name="action_interaction_mode_2d">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>2D interaction</string>
+   </property>
+  </action>
+  <action name="action_interaction_mode_cad">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>CAD-like interaction</string>
+   </property>
+  </action>
+  <action name="action_interaction_mode_fps">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FPS-like interaction</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QGLWidget</class>
+   <extends>QWidget</extends>
+   <header>qglwidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="icons/icons.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>action_save_screenshot</sender>
+   <signal>triggered()</signal>
+   <receiver>view</receiver>
+   <slot>save_screenshot()</slot>
+  </connection>
+  <connection>
+   <sender>action_save_video</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>view</receiver>
+   <slot>save_video(bool)</slot>
+  </connection>
+  <connection>
+   <sender>action_show_axes</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>view</receiver>
+   <slot>axes_are_visible(bool)</slot>
+  </connection>
+  <connection>
+   <sender>action_show_grid</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>view</receiver>
+   <slot>grid_is_visible(bool)</slot>
+  </connection>
+  <connection>
+   <sender>action_show_reticle</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>view</receiver>
+   <slot>reticle_is_visible(bool)</slot>
+  </connection>
+  <connection>
+   <sender>action_best_fit</sender>
+   <signal>triggered()</signal>
+   <receiver>view</receiver>
+   <slot>zoom_fit_best()</slot>
+  </connection>
+  <connection>
+   <sender>action_original_size</sender>
+   <signal>triggered()</signal>
+   <receiver>view</receiver>
+   <slot>zoom_original()</slot>
+  </connection>
+ </connections>
+ <slots>
+  <slot>axes_are_visible(bool)</slot>
+  <slot>grid_is_visible(bool)</slot>
+  <slot>reticle_is_visible(bool)</slot>
+  <slot>save_screenshot()</slot>
+  <slot>save_video(bool)</slot>
+ </slots>
+</ui>
