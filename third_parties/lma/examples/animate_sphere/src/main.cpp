@@ -141,4 +141,49 @@
     solver.solve(DENSE_SCHUR,enable_verbose_output());
   };
 
-//-------------------
+//---------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------
+
+
+int main()
+{
+  v::viewer(0).size(800,660);
+  Vector4d sphere;
+  sphere << 0,0,0,100;
+
+  vector<Vector3d> points,refs;
+
+  for(double theta = -M_PI/2.0 ; theta < M_PI/2.0 ; theta+=0.1)
+    for(double phi = -M_PI ; phi < M_PI ; phi+=0.1)
+      points.emplace_back(
+        on_sphere(theta,phi,sphere[3])
+        );
+
+  refs = points;
+
+  for(auto& p : points) p += Vector3d::Random()*50.0;
+
+  sphere << 0,0,0,50;
+
+  State state = before;
+  std::thread th(std::bind(draw,boost::ref(sphere),boost::ref(points),boost::ref(state)));
+
+
+
+  getchar();
+  optimise(sphere,points,refs,0);
+
+  state = after0;
+  getchar();
+  optimise(sphere,points,refs,1);
+  state = after1;
+  getchar();
+  optimise(sphere,points,refs,2);
+  state = after2;
+
+  v::wait_viewers();
+  stop_thread.store(true, std::memory_order_relaxed);
+  th.join();
+
+  return 0;
+}
