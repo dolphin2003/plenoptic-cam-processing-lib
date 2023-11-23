@@ -43,4 +43,5 @@ namespace v
   {
     using namespace ::lma;
   }
-  using names
+  using namespace lma;
+}
