@@ -81,4 +81,11 @@ int main()
     v1.update();
     v2.update();
     output->run_verbose();
-   
+    v3.title("Done, you can now close this window");
+    wait_viewers();
+  }
+  else
+  {
+    output->run();
+  }
+}
