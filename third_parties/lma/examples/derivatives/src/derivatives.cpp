@@ -65,4 +65,28 @@ struct F4 : Analytical
 };
 
 
-struct F5 : Auto
+struct F5 : Automatic
+{
+  bool operator()(const Eigen::Vector2d& xy, double &r) const
+  {
+    return rosenbrock(xy[0],xy[1],r);
+  }
+
+  template<class AD>
+  bool automatic(const Eigen::Vector2d&, const AD xy[2], AD res[1]) const
+  {
+    return rosenbrock(xy[0],xy[1],res[0]);
+  }
+};
+
+
+int main()
+{
+  test<F1>();
+  test<F2>();
+  test<F3>();
+  test<F4>();
+  test<F5>();
+
+  return EXIT_SUCCESS;
+}
