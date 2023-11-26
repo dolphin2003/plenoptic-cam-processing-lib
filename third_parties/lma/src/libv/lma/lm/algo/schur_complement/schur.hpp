@@ -162,4 +162,39 @@ namespace lma
     typedef typename 
                     mpl::remove_if<
                                     TypeWs_,
-                                    mpl::
+                                    mpl::not_<
+                                              mpl::contains<typename BA::ListeHessien,mpl::_1>
+                                            >
+                                  >::type TypeWs;
+    typedef typename br::as_map<TypeWs>::type TupleWs;
+    
+    typedef typename mpl::transform< KeyUs, VectorToPairStruct<mpl::_1,MatrixTag> >::type ListResidu;
+    typedef typename mpl::transform< KeyVs, VectorToPairStruct<mpl::_1,MatrixTag> >::type ListResiduVs;
+    typedef typename br::as_map<ListResidu>::type TupleResiduUs;
+    typedef typename br::as_map<ListResiduVs>::type TupleResiduVs;
+
+    typedef typename mpl::transform<KeyVs,ToTable<Single<mpl::_1>,MatrixTag>>::type TypeVs;
+    typedef typename br::as_map<TypeVs>::type TupleVs;
+  
+    typedef typename mpl::transform< KeyUs, pair_>::type DiagUs;
+    typedef typename mpl::transform< KeyVs, pair_>::type DiagVs;
+    
+    ImplicitSchurContainer()
+    {
+//        std::cout << "Parametres : " << ttt::name<ListeParametre>() << std::endl;
+//        std::cout << "Us         : " << ttt::name<Us>() << std::endl;
+//        std::cout << "Vs         : " << ttt::name<Vs>() << std::endl;
+       //std::cout << "Ws         : " << ttt::name<TypeWs>() << std::endl;
+//        std::cout << "ResiduUs   : " << ttt::name<TupleResiduUs>() << std::endl;
+//        std::cout << "TypeVs     : " << ttt::name<TypeVs>() << std::endl;
+//        std::cout << "TupleVs    : " << ttt::name<TupleVs>() << std::endl;
+    }
+    
+    TupleWs ys;
+    TupleResiduUs bs;
+    TupleVs save_vs;
+  };
+}// eon
+
+#endif
+
