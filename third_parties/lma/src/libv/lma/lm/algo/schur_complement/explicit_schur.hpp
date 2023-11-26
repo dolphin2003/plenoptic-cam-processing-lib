@@ -142,4 +142,98 @@ namespace lma
     typedef typename Ba::Hessian Hessian;
     typedef typename Ba::Keys Keys;
     typedef typename parent::SchurCont ParentSchur;
-    typedef SchurExplicit<Ba,K,typename ParentS
+    typedef SchurExplicit<Ba,K,typename ParentSchur::KeyUs> SchurCont;
+    
+    typedef typename ParentSchur::TypeVs TypeVs;
+    typedef typename ParentSchur::TypeWs TypeWs;
+    typedef typename ParentSchur::ListResidu ResiduUs;
+    
+    SchurCont schur_;
+
+    typedef typename SchurCont::KeyVs KeyVs;
+
+    template<class Config> ExplicitSchur(Config config):parent(config){}
+
+    void init(Bundle& bundle_, Ba& ba_)
+    {
+      parent::init(bundle_,ba_);
+      bf::for_each(schur_.s,detail::ResizeInterInit<Bdl>(bundle_));
+      schur_.init(bundle_.vab_map);
+      auto tie1 = std::tie(bundle_, ba_.h);
+      for_each<MetaProd<TypeWs,Transpose<TypeWs>>>(std::tie(schur_.s,parent::schur_.ys,ba_.h),AA_INIT_S_1_AA<decltype(tie1)>(tie1));
+      
+      bf::for_each(schur_.s,UpdateIndice());
+      /*bf::for_each(schur_.s,[](auto& pair)
+      {
+        pair.second.indice.update();
+        pair.second.resize(pair.second.indice);
+      });*/
+      auto tie2 = std::tie(schur_.tuple_v,schur_.svab, bundle_);
+      for_each<MetaProd<TypeWs,Transpose<TypeWs>>>(std::tie(schur_.s,parent::schur_.ys,ba_.h),AA_INIT_S_2_AA<decltype(tie2)>(tie2));
+    }
+
+    void init_zero()
+    {
+      parent::init_zero();
+      bf::for_each(schur_.s,detail::SetZero());//! facultatif ?
+    }
+
+    using parent::save_h;
+    using parent::reload_h;
+    using parent::get_vs;
+
+    void solve(Ba& ba_, Bundle& bundle_)
+    {
+      parent::inv_v(ba_.h);
+      parent::compute_y(ba_);
+      parent::compute_b(ba_);
+      compute_s(ba_,bundle_);
+      compute_delta_a(ba_);
+      parent::compute_delta_b(ba_);
+    }
+
+    void compute_s(Ba& ba_, Bundle& )
+    {
+      Tic tic("Compute S");
+      bf::for_each(schur_.s,AssignSame<Hessian>(ba_.h));
+//       bf::for_each(schur_.s,[&](auto& pair)     
+//       {
+//         std::cout << " Assign " << pair.second.name() << std::endl;
+//         AssignSame<Hessian>(ba_.h)(pair);
+//         
+// //         auto a = to_mat<typename SchurCont::OptimizeKeys,typename SchurCont::TypeS>(schur_.s,size_tuple<mpl::size<typename SchurCont::OptimizeKeys>::value>(ba_.delta));
+//         
+// //         std::cout << " S = U \n " << a << std::endl;
+//       }
+//       );
+      
+//       typedef typename SchurCont::OptimizeKeys aa;
+//       typedef typename SchurCont::TypeS bb;
+//       auto a = to_mat<typename SchurCont::OptimizeKeys,typename SchurCont::TypeS>(schur_.s,size_tuple<mpl::size<typename SchurCont::OptimizeKeys>::value>(ba_.delta));
+      
+//       std::cout << " S = U \n " << a << std::endl;
+      // S = Y * W
+      for_each<MetaProd<TypeWs,Transpose<TypeWs>> >(std::tie(schur_.s,parent::schur_.ys,ba_.h),AA_COMPUTE_S_AA<typename SchurCont::TUPLEVECTORINDICE>(schur_.tuple_v));
+
+//       a = to_mat<typename SchurCont::OptimizeKeys,typename SchurCont::TypeS>(schur_.s,size_tuple<mpl::size<typename SchurCont::OptimizeKeys>::value>(ba_.delta));
+      
+//       std::cout << " S -= YW\n " << a << std::endl;
+
+      tic.disp();
+    }
+
+    void compute_delta_a(Ba& ba_)
+    {
+      Tic tic("Compute DA");
+      parent::norm_eq(BABYS<Ba,SchurCont,ParentSchur>(ba_,schur_,parent::schur_),ba_.delta,MatrixTag());
+      tic.disp();
+    }
+  };
+}// eon
+
+namespace ttt
+{
+  template<class A, class B, class C, int K> struct Name<lma::ExplicitSchur<A,B,C,v::numeric_tag<K>>> { static std::string name(){ return "ExplicitSchur<" + ttt::name<B>() + "," + ttt::name<C>() + "," + lma::to_string(K) + ">"; } };
+}
+
+#endif
