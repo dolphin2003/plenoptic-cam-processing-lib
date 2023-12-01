@@ -312,3 +312,249 @@ namespace lma
       auto& vector = bf::at_key<Obs>(bundle.spi2.parameters);
       for(size_t i = 0 ; i < vector.size() ; ++i)
       {
+        // tuple d'adresses -> tuple d'indices
+        copy_f(tuple,vector[i],AdressToIndice<Set>(set));
+        detail::AddTuple::add<Obs>(bundle,tuple);
+      }
+    }
+  };
+  
+  template<class Set, class Bundle> struct UpdateVab2
+  {
+    const Set& set;
+    Bundle& bundle;
+    UpdateVab2(const Set& set_, Bundle& bundle_):set(set_),bundle(bundle_){}
+    
+    template<class Obs> void operator()(ttt::wrap<Obs> const &)
+    {
+      typename Bundle::MapZZ2::template ToTupleElement<Obs>::first_type tuple;
+      auto& vector = bf::at_key<Obs>(bundle.spi2.parameters);
+      for(size_t i = 0 ; i < vector.size() ; ++i)
+      {
+        copy_f(tuple,vector[i],AdressToIndice<Set>(set));
+        bundle.spi2.template at<Obs>().emplace_back(tuple,typename Bundle::MapZZ2::template Second<Obs>::type());
+        detail::AddTuple::add2<Obs>(bundle,tuple);
+      }
+    }
+  };
+  
+  template<class Map> struct ForEachSetMax2
+  {
+    const Map& map;
+    ForEachSetMax2(const Map& map_):map(map_){}
+    template<class Pair> void operator()(Pair& pair) const
+    {
+      auto& sic = pair.second;
+      typedef typename ttt::rm_all<decltype(sic)>::type Sic;
+      typedef typename Sic::first_type A;
+      typedef typename Sic::second_type B;
+      sic.set_max(bf::at_key<A>(map).size(),bf::at_key<B>(map).size());
+    }
+  };
+  
+  template<class Map> struct ForEachSetMax
+  {
+    const Map& map;
+    ForEachSetMax(const Map& map_):map(map_){}
+    
+    template<class Pair> void operator()(Pair& pair) const
+    {
+      bf::for_each(pair.second,ForEachSetMax2<Map>(map));
+    }
+  };
+  
+  template<class Map> struct ForEachUpdate2
+  {
+    const Map& map;
+    ForEachUpdate2(const Map& map_):map(map_){}
+    template<class Pair> void operator()(Pair& pair) const
+    {
+      auto& sic = pair.second;
+      sic.update();
+    }
+  };
+  
+  template<class Map> struct ForEachUpdate
+  {
+    const Map& map;
+    ForEachUpdate(const Map& map_):map(map_){}
+    
+    template<class Pair> void operator()(Pair& pair) const
+    {
+      bf::for_each(pair.second,ForEachUpdate2<Map>(map));
+    }
+  };
+
+          
+  template<class FL, class ParamFonctor_ = DoNothing<mpl::_1> > struct Bundle
+  {
+    typedef ParamFonctor_ ParamFonctor;
+    typedef Bundle<FL,ParamFonctor> self;
+
+    typedef typename FindOrder<FL,ParamFonctor>::type::list_function ListFunction;
+    typedef typename FindOrder<FL,ParamFonctor>::type::list_parameter ListeParam;
+
+    static const std::size_t NbClass = mpl::size<ListeParam>::value;
+
+    typedef MultiContainer<ListeParam,detail::FonctorPairTic<mpl::_1>> MCA;
+    typedef MultiContainer<ListFunction,detail::FonctorPairTic<mpl::_1>> MCFonction;
+    typedef typename MakeSparseIndiceContainer1<ListeParam>::type VABMap;
+
+    typedef typename mpl::transform<ListFunction,CreateListArg<mpl::_1>>::type ListListArg_;
+    typedef typename mpl::transform<ListListArg_,ParamFonctor>::type ListListArg;
+    typedef typename mpl::transform<ListListArg,TransformToPair<mpl::_1>>::type VectorVectorParametre;
+    
+    typedef typename MapMapMaker<ListFunction,VectorVectorParametre,FunctorPairKeyMap>::type MapMapParametre;// use in get_map2
+    
+    typedef MAPZZ2<ListFunction,ParamFonctor> MapZZ2;
+    MapZZ2 spi2;
+
+    public:
+    // Container des paramètres (MapOfTIC : bf::map< bf::pair< A,TIC< A > >, .., bp::pair< X, TIC< Z > > >)
+    MCA opt_container;
+    
+    // Container des foncteurs
+    MCFonction fonction_container;
+
+    // Conteneur d'indices
+    VABMap vab_map;
+
+    Bundle(){
+//       MapZZ2::disp();
+//       std::cout << " VAB : " << ttt::name<VABMap>() << std::endl;
+//       abort();
+    }
+
+    template<class MContainer, class Key> struct GetValueType
+    {
+      typedef typename MContainer::template AtKey<Key>::type ContainerRef;
+      typedef typename std::decay<ContainerRef>::type Container;
+      typedef typename Container::Type type_;
+      typedef typename boost::add_reference<typename boost::add_const<type_>::type>::type type;
+    };
+
+    template<class MContainer, class Key> struct GetValueType2
+    {
+      typedef typename br::at_key<MContainer,Key>::type ContainerRef;
+      typedef typename std::decay<ContainerRef>::type Vector;
+      typedef typename Vector::value_type type_;
+      typedef typename boost::add_reference<typename boost::add_const<type_>::type>::type type;
+    };
+
+    //! at_key< Key>() -> TIC< Key >
+    template<class Key> typename MCA::template AtKey<Key>::type& at_opt()       { return opt_container.template at_key<Key>(); }
+    template<class Key> typename MCA::template AtKey<Key>::const_ref_type& at_opt() const { return opt_container.template at_key<Key>(); }
+    template<class Key> typename MCFonction::template AtKey<Key>::type& at_obs() { return fonction_container.template at_key<Key>(); }
+    template<class Key> typename MCFonction::template AtKey<Key>::const_ref_type at_obs() const {return fonction_container.template at_key<Key>(); }
+    template<class Key> typename GetValueType<MCA,Key>::type opt(const ttt::Indice<Key>& indice) const { return at_opt<Key>()(indice); }
+    template<class Key> typename GetValueType<MCFonction,Key>::type obs(const ttt::Indice<Key>& indice) const { return at_obs<Key>()(indice); }
+
+
+
+
+    //! operator< Key1, Key2 >() -> SIC< Key1, Key2 >
+    template<class Key1, class Key2> typename BinaryAt<VABMap,Key1,Key2>::type_ref indices()
+    { 
+      BOOST_MPL_ASSERT((boost::is_reference<typename BinaryAt<VABMap,Key1,Key2>::type_ref>));
+      return bf::at_key<Key1>(bf::at_key<Key2>(vab_map));
+    }
+
+    template<class Key1, class Key2> typename BinaryAt<VABMap,Key1,Key2>::const_ref_type indices() const
+    { 
+      return bf::at_key<Key1>(bf::at_key<Key2>(vab_map));
+    }
+
+    //! Map of parameters from an observation indice
+    //template<class Obs> typename br::value_at_key<MapMapParametre,Obs>::type map(const ttt::Indice<Obs>& indice) const
+
+    template<class Obs> typename GetValueType2<typename MapZZ2::ContainerParameters,Obs>::type map(const ttt::Indice<Obs>& indice) const
+    {
+      assert(size_t(indice()) < bf::at_key<Obs>(spi2.parameters).size());
+      return bf::at_key<Obs>(spi2.parameters)[indice()];
+    }
+
+    template<class Obs, class ... Params> void add(const Obs& f, const Params& ... params)
+    {
+      // stocke le tuple d'adresse dans spi2.container
+      bf::at_key<Obs>(spi2.parameters).emplace_back(params...);
+      fonction_container.add(f);
+    }
+    
+    bool is_updated = false;
+    void update()
+    {
+      if (is_updated) return ;
+      is_updated = true;
+      typedef typename br::as_map<
+                                  typename mpl::transform<
+                                                          ListeParam,
+                                                          bf::pair<
+                                                                    mpl::_1,
+                                                                    std::map<mpl::_1,ttt::Indice<mpl::_1>>
+                                                                  >
+                                                        >::type
+                                >::type MapAdressParameters;
+      MapAdressParameters map;
+      // liste et ordonne les parameters dans map
+      mpl::for_each<ListFunction,ttt::wrap<mpl::_1>>(AddSet<MapAdressParameters,typename MapZZ2::ContainerParameters>(map,spi2.parameters));
+      // ajoute les parametres dans le bundle et met à jour map avec les indices correspondants
+      mpl::for_each<ListeParam,  ttt::wrap<mpl::_1>>(AddParam<MapAdressParameters,self>(map,*this));
+      // update indices relations and sparse_indices
+      
+      bf::for_each(vab_map,ForEachSetMax<MapAdressParameters>(map));
+      /*
+      bf::for_each(vab_map,[&map](auto& m)
+      {
+        bf::for_each(m.second,[&map](auto& pair)
+        {
+          auto& sic = pair.second;
+          typedef typename ttt::rm_all<decltype(sic)>::type Sic;
+          typedef typename Sic::first_type A;
+          typedef typename Sic::second_type B;
+          sic.set_max(bf::at_key<A>(map).size(),bf::at_key<B>(map).size());
+        });
+      });
+      */
+      
+      mpl::for_each<ListFunction,ttt::wrap<mpl::_1>>(UpdateVab<MapAdressParameters,self>(map,*this));
+
+      bf::for_each(vab_map,ForEachUpdate<MapAdressParameters>(map));
+      /*bf::for_each(vab_map,[&map](auto& m)
+      {
+        bf::for_each(m.second,[&map](auto& pair)
+        {
+          auto& sic = pair.second;
+          sic.update();
+        });
+      });*/
+      
+      mpl::for_each<ListFunction,ttt::wrap<mpl::_1>>(UpdateVab2<MapAdressParameters,self>(map,*this));
+      
+    }
+    size_t nb_obs() const { return bf::fold(fonction_container.map(),0,TicCounter()); }
+
+    std::ostream& disp(std::ostream& o) const
+    {
+      detail::DispName<false> dn(o);
+      bf::for_each(opt_container.map(), dn);
+      detail::DispName<true> dn2(o);
+      bf::for_each(fonction_container.map(), dn2);
+      return o;
+    }
+
+    const typename self::MCA& clone_opt_container() const{return this->opt_container;}
+    void restore_container(const typename self::MCA& mca){this->opt_container = mca;}
+  };
+
+}// eon lma
+
+template<class X, class _>
+std::ostream& operator<<(std::ostream& o, const lma::Bundle<X,_>& bundle)
+{
+  bundle.disp(o);
+  lma::detail::Print6 p1(o);
+  boost::fusion::for_each(bundle.opt_container().map(), p1);
+  return o;
+}
+
+#endif
