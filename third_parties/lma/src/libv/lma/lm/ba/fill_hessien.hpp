@@ -117,4 +117,30 @@ namespace lma
                       Analytical,
                       typename boost::mpl::if_< 
                                                 boost::is_convertible<Obs*,NumericForward*>,
-                                           
+                                                NumericForward,
+                                                NumericCentral// default numeric derivative is central
+                                              >::type
+                     >::type DispatchTag;
+        
+        sequential<Obs>(DispatchTag());
+      }
+    };
+    
+    template<class Derivator, class Bundle, class Ba, class MapErreur>
+    void store_jacob_and_fill_hessien(const Bundle& bundle, Ba& ba, MapErreur& map_erreur)
+    {
+      FillHessien33<Derivator,Bundle,Ba,MapErreur> fh(bundle,ba,map_erreur);
+      mpl::for_each<typename Bundle::ListFunction, ttt::wrap<mpl::placeholders::_1>>(fh);
+    }*/
+    
+    template<class Tag, class Bundle, class Ba, class MapErreur, class Medianes>
+    void fill_hessien(const Bundle& bundle, Ba& ba, MapErreur& map_erreur, const Medianes& meds)
+    {
+      FillHessien32<Tag,Bundle,Ba,MapErreur,Medianes> fh(bundle,ba,map_erreur,meds);
+      mpl::for_each<typename Bundle::ListFunction, ttt::wrap<mpl::placeholders::_1>>(fh);
+    }
+  }// eon
+
+}// eon
+
+#endif
