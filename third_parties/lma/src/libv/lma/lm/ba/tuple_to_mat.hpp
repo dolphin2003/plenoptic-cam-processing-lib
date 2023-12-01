@@ -127,4 +127,49 @@ namespace lma {
   
   template<class Tag,class Keys, class TupleKeys, class SizeTuple, class Tuple> typename ContainerOption<Tag,0,0>::MatrixDD to_mat(const Tuple& tuple, SizeTuple size_tuple)
   {
-    typedef typename ContainerOption<Tag,0,0
+    typedef typename ContainerOption<Tag,0,0>::MatrixDD MatD;
+    MatD mat(bf::back(size_tuple),bf::back(size_tuple));
+    set_zero(mat);
+    mpl::for_each<TupleKeys,ttt::wrap_>(ConvertToMat<Tag,MatD,Keys,Tuple,SizeTuple>(mat,tuple,size_tuple));
+    return mat;
+  }
+  
+  template<class Tag, class Keys, class TupleKeys, class SizeTuple, class Tuple> Eigen::SparseMatrix<double> to_sparse(const Tuple& tuple, SizeTuple size_tuple)
+  {
+    Eigen::SparseMatrix<double> mat(bf::back(size_tuple),bf::back(size_tuple));
+    mat.reserve(Eigen::VectorXd::Constant(bf::back(size_tuple),bf::back(size_tuple)));
+    mpl::for_each<TupleKeys,ttt::wrap_>(ConvertToMat<Tag,Eigen::SparseMatrix<double>,Keys,Tuple,SizeTuple>(mat,tuple,size_tuple));
+    mat.makeCompressed();
+    return mat;
+  }
+
+  
+  // vector toujours dense
+  template<class Tag, class VecD, class Tuple> struct AddVec
+  {
+    VecD& mat;
+    const Tuple& tuple;
+    int i;
+    AddVec(const Tuple& tuple_, VecD& mat_):mat(mat_),tuple(tuple_),i(0){}
+    
+    template<class Key, class Value> void operator()(ttt::wrap<bf::pair<Key,Value>>)
+    {
+      for(auto& x : bf::at_key<Key>(tuple))
+      {
+        for(size_t k = 0 ; k < Value::I ; ++k)
+          mat[i+k] = x[k];
+//         Blocker<Tag,Value::I,1>::view(mat,i,0) = x;
+        i += Value::I;
+      }
+    }
+  };
+    
+  template<class Tag, class Tuple> typename ContainerOption<Tag,0,0>::MatrixD1 to_matv(const Tuple& tuple)
+  {
+    typename ContainerOption<Tag,0,0>::MatrixD1 mat(nb_element(tuple));
+    mpl::for_each<Tuple,wrap_>(AddVec<Tag,typename ContainerOption<Tag,0,0>::MatrixD1,Tuple>(tuple,mat));
+    return mat;
+  }
+}// eon
+
+#endif
