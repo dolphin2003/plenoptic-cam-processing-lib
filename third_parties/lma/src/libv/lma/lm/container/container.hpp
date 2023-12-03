@@ -110,4 +110,88 @@ namespace lma
       {
       	for(int j = 0; j < i; ++j)
       	{
-      	  T 
+      	  T sum  = 0;
+      	  for(int  k = j; k < i; ++k)
+      	    sum += (a[i][k] * a[k][j]);
+      	  a[i][j] = - sum * a[i][i];
+      	}
+      }
+    }
+
+    for(int i = 0; i < n; ++i)
+    {
+      for(int j = i; j < n; ++ j)
+      {
+      	ai[i][j] = 0;
+      	for(int k  = j; k < n; ++k)
+      	  ai[i][j] += a[k][i] * a[k][j];
+      	ai[j][i] = ai[i][j];
+      }
+    }
+  }
+  
+  
+  template <class T, int n> void invert_symmetric_matrix(T * a, T * ai)
+  {
+    invert_symmetric_matrix<T,n>((T(*)[n]) a, (T(*)[n]) ai);
+  }
+  
+  
+  template<class Matrix, class Vector>
+  Vector llt(Matrix u, Vector x, int size)
+  {
+    for(int i = 0 ; i < size ; ++i)
+    {
+      for(int k = 0 ; k < i ; ++k)
+        u(i,i) -= u(k,i) * u(k,i);
+      
+      assert(u(i,i)>0);
+      if (u(i,i)<=0) throw ZeroOrInfiniteError("LLT");
+      u(i,i) = std::sqrt(u(i,i));
+      
+      for(int j = i + 1; j < size ; ++j)
+      {
+        for(int k = 0 ; k < i ; ++k)
+          u(i,j) -= u(k,i) * u(k,j);
+        u(i,j) /= u(i,i);
+      }
+    }
+
+    for(int j = 0 ; j < size; ++j)
+    {
+      for(int i = 0 ; i < j ; ++i)
+        x[j] -= u(i,j) * x[i];
+      x[j] /= u(j,j);
+    }
+    
+    for(int j = size - 1 ; j >=0  ; --j)
+    {
+      for(int i = j+1 ; i < size ; ++i)
+        x[j] -= u(j,i) * x[i];
+      x[j] /= u(j,j);
+    }
+    return x;
+  }
+
+  template<class VecD, class MatD>
+  void ldlt_solve(VecD& x, const MatD& a, const VecD& b)
+  {
+    x = llt(a,b,b.size());
+  }
+  
+  inline double dot(double a, double b)
+  {
+    return a*b;
+  }
+
+}
+
+#include "eigen.hpp"
+
+#ifdef USE_TOON
+#include "toon.hpp"
+#endif
+
+
+
+#endif
