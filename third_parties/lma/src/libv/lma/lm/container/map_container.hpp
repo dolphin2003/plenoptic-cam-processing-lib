@@ -81,4 +81,44 @@ namespace lma
       static const std::size_t NbContainer = boost::fusion::result_of::size<Map>::value;
 
       //! add a value to the associate container when Value == Key
-      template<class Value> ttt::Indice<Valu
+      template<class Value> ttt::Indice<Value> add(const Value& value)
+      {
+        return boost::fusion::at_key<Value>(map_).add(value);
+      }
+
+      template<class Key> struct AtKey
+      {
+        typedef typename br::at_key<Map,Key>::type type;
+        typedef typename boost::add_const<typename std::decay<type>::type>::type const_type;
+        typedef typename boost::add_reference<const_type>::type const_ref_type;
+      };
+
+      template<class Key> typename AtKey<Key>::type at_key()
+      {
+        return boost::fusion::at_key<Key>(map_);
+      }
+
+      template<class Key> typename AtKey<Key>::const_ref_type at_key() const
+      {
+        return boost::fusion::at_key<Key>(map_);
+      }
+
+
+      const Map& map() const { return map_; }
+      Map& map() { return map_; }
+      
+      void clear()
+      {
+        bf::for_each(map_,Clear());
+//         bf::for_each(map_,[](auto& cont){cont.second.clear();});//c++14
+      }
+  };
+
+}// eon lma
+
+template<class L, class F> std::ostream& operator<<(std::ostream& o, const lma::MultiContainer<L,F>& mc)
+{
+  return o << mc.map() << std::endl;
+};
+
+#endif
