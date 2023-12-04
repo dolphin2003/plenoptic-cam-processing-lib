@@ -84,4 +84,49 @@ namespace lma
     enum { erreur_size = Size<ErreurType>::value };
   };
 
-  template<class F> Function<F> make_fu
+  template<class F> Function<F> make_function(const F& f) { return Function<F>(f); }
+  
+  template<class T> struct DoNothing {typedef T type;};
+  
+  template<class F> struct CreateListArg : Function<F>::ParametersType {};
+  
+  template<class V, class F> struct CatFunctionParameters : ttt::UniqueCat<V,CreateListArg<F>> {};
+  
+  template<class L, class F> struct CreateListParam 
+  {
+    typedef typename     
+    mpl::fold<
+              L,
+              mpl::vector<>,
+              CatFunctionParameters<mpl::_1,mpl::_2>
+             >::type l;
+    typedef typename mpl::apply<F,l>::type type;
+  };
+  
+  template<class L, class F> struct FindOrder
+  {
+    typedef typename
+    mpl::find_if<
+                  L,
+                  mpl::is_sequence<mpl::_1>
+                >::type iterator;
+    
+    template<class List, class Order> struct Result { typedef typename List::type list_function; typedef typename Order::type list_parameter;};
+    
+    typedef typename
+    mpl::if_<
+              boost::is_same<
+                              iterator,
+                              typename mpl::end<L>::type
+                            >,
+              Result<DoNothing<L>,CreateListParam<L,F>>,
+              Result<mpl::remove<L,typename mpl::deref<iterator>::type>, mpl::apply<F,typename mpl::deref<iterator>::type>>
+            >::type type;
+  };
+}
+
+namespace ttt
+{
+
+}
+#endif
