@@ -93,3 +93,17 @@ namespace lma
       double_unroll(ttt::Int<Rows<Jacob>::value>(),ttt::Int<Cols<Jacob>::value>(),ad2jacob<DDL>(jacob,ad));
       _unroll(Int<DDL+Size<decltype(bf::at_c<I>(tuple))>::value>(),fun,ttt::Int<I+1>(),ttt::Int<F>(),ad,result,tuple);
     }
+
+    template<class Fonctor, class Tuple, class Jacob>
+    static void derive(const Fonctor& fonctor, const Tuple& tuple, Jacob& result)
+    {
+      static const size_t erreur_size = FunctionInfo<Fonctor>::erreur_size;
+      static const size_t ddl = FunctionInfo<Fonctor>::ddl;
+      auto residual = to_adct_residual<ddl>(ttt::Int<erreur_size>(),Tag());
+      _unroll2(fonctor,ttt::Int<0>(),ttt::Int<0>(),ttt::Int<mpl::size<Tuple>::value>(),tuple,residual);
+      _unroll(Int<0>(),fonctor,ttt::Int<0>(),ttt::Int<mpl::size<Jacob>::value>(),residual,result,tuple);
+    }
+  };
+}
+
+#endif
