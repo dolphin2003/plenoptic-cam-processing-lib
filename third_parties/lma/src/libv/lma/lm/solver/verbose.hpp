@@ -138,4 +138,52 @@ private:
   template<class Solver, class Bundle>
   void print_iteration(const Solver& s, const Bundle& b, const char *color) const
   {
-    std
+    std::cerr
+    << boost::format("%s%3d  %7.1g  %10.5g  %+11.5g  %10.5g  %+11.5g  %8.3g  %8.3g\e[m")
+      % color
+      % s.it_interne
+      % s.lambda
+      % s.rms2
+      % (s.rms2 - s.rms1)
+      % sqrt(s.rms2 / b.nb_obs())
+      % (sqrt(s.rms2 / b.nb_obs()) - sqrt(s.rms1 / b.nb_obs()))
+      % clock_iteration.toc()
+      % clock_total.toc()
+    << std::endl;
+  }
+};
+
+  struct minimal_verbose : default_callbacks_for_solver
+  {
+    mutable utils::Tic<true> clock_total;
+    
+    template<class S, class A>
+    void at_begin_bundle_adjustment(const S&, const A&) const
+    {
+      clock_total.tic();
+      std::cerr
+        << std::endl
+        << "\e[33m"
+        << ttt::name<A>()
+        << "\e[36m : ";
+    }
+    
+    template<class Solver, class Algo>
+    void at_end_bundle_adjustment(const Solver& s, const Algo&) const
+    {
+      std::cerr 
+        << " From " << s.initial_cost 
+        << " to " << s.final_cost 
+        << " in " << clock_total.toc() 
+        << " sec.(" << s.it_interne 
+        << " it)." << std::endl;
+      // static const boost::format format("\e[36m%-21s: %g\e[m, ");
+      // std::cerr << boost::format(format) % "Initial" % s.initial_cost;;
+      // std::cerr << boost::format(format) % "Final cost" % s.final_cost;
+//       std::cerr << boost::format(format) % "Total time" % clock_total.toc()
+      ;
+    }
+  };
+}
+
+#endif
