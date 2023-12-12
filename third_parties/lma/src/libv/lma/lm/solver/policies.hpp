@@ -50,3 +50,11 @@ namespace lma
   template<class Container, size_t nb_class, class MatrixTag, class Float, size_t K> struct SelectAlgo <Container,nb_class,PcgTag<MatrixTag,Float,K>> 
     : LevMar<ExplicitSchur<Container,PCG,bf::pair<MatrixTag,Float>,v::numeric_tag<K>>> { };
   
+  template<class Container, size_t nb_class, class MatrixTag, class Float> struct SelectAlgo <Container,nb_class,LdltTag<MatrixTag,Float,0>>
+    : LevMar<Global<Container,LDLT,bf::pair<MatrixTag,Float>>> { };
+  
+  template<class Container, size_t nb_class, class MatrixTag, class Float> struct SelectAlgo <Container,nb_class,PcgTag<MatrixTag,Float,0>>
+    : LevMar<Global<Container,PCG,bf::pair<MatrixTag,Float>>> { };
+}
+
+#endif
