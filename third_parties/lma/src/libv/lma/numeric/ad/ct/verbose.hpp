@@ -81,4 +81,31 @@ namespace adct
   }
   
   
-  template<class A, class B, class Op> std::ostream& disp(const Binary<A
+  template<class A, class B, class Op> std::ostream& disp(const Binary<A,B,Op>& binary, std::ostream& o)
+  {
+    return disp(binary.a,disp(binary.b,disp(Op(),o) << "<") << ",") << ">" ;
+  }
+  
+  template<class A, class Op> std::ostream& disp(const Unary<A,Op>& unary, std::ostream& o)
+  {
+    return disp(unary.a,disp(Op(),o) << "<") << ">";
+  }
+  
+  template<class T, int N> std::ostream& disp(const Ad<T,N>& /*ad*/, std::ostream& o)
+  {
+    return o << "Ad<>" ;
+  }
+
+  template<class A> std::ostream& disp(const Expr<A>& expr, std::ostream& o = std::cout)
+  {
+    return disp(expr.cast(),o);
+  }
+}
+
+template<class T, int N> std::ostream& operator<<(std::ostream& o, const adct::Ad<T,N>& ad)
+{
+  return o << "[" << ad.value() << "," << ad.infinite().transpose() << "]";
+}
+
+#endif
+
