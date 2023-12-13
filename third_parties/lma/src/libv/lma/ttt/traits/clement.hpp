@@ -12,18 +12,13 @@
 
 */
 
-#ifndef __LMA_TTT_FUSION_PAIR_HPP__
-#define __LMA_TTT_FUSION_PAIR_HPP__
+#ifndef __MODULES_TTT_TRAITS_CLEMENT_HPP__
+#define __MODULES_TTT_TRAITS_CLEMENT_HPP__
 
-#include <libv/lma/ttt/traits/naming.hpp>
-#include <boost/fusion/include/pair.hpp>
+struct clement_type{};
 
-namespace ttt
-{
-  template<class A, class B> struct Name<boost::fusion::pair<A,B>>
-  {
-    static std::string name() { return color.red() + "bf::pair<" + color.reset() + ttt::name<A>() + "," + ttt::name<B>() + color.red() + ">" + color.reset();}
-  };
-}
+inline void clement( clement_type ){}
+
+template<class ... T> inline void plz_no_warning(const T &... ){}
 
 #endif

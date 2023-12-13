@@ -12,18 +12,16 @@
 
 */
 
-#ifndef __LMA_TTT_FUSION_PAIR_HPP__
-#define __LMA_TTT_FUSION_PAIR_HPP__
+#ifndef __TTT_MPL_CAT_HPP__
+#define __TTT_MPL_CAT_HPP__
 
-#include <libv/lma/ttt/traits/naming.hpp>
-#include <boost/fusion/include/pair.hpp>
+#include <boost/mpl/insert_range.hpp>
+#include <boost/mpl/end.hpp>
 
 namespace ttt
 {
-  template<class A, class B> struct Name<boost::fusion::pair<A,B>>
-  {
-    static std::string name() { return color.red() + "bf::pair<" + color.reset() + ttt::name<A>() + "," + ttt::name<B>() + color.red() + ">" + color.reset();}
-  };
+  template<class LP, class LQ> struct Cat : boost::mpl::insert_range<LP,typename boost::mpl::end<LP>::type,LQ> {};
 }
 
 #endif
+
