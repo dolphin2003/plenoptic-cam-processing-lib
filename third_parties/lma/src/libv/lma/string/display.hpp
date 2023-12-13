@@ -36,4 +36,21 @@ template<class T, class A> std::ostream& operator<<(std::ostream& o, const std::
   return o;
 }
 
-template<class T, class A> std::ostream& operator<<(std::ostream& o, const std::list<T,A>& 
+template<class T, class A> std::ostream& operator<<(std::ostream& o, const std::list<T,A>& v)
+{
+  o << "std::list[";
+  for(auto it = v.cbegin() ; it != v.cend() ; it++)
+    o << (it==v.cbegin()?"":",") << (*it) << "|\n";
+  o << "]" /*<< std::endl*/;
+  return o;
+}
+template<class T, std::size_t N> std::ostream& operator<<(std::ostream& o, const std::array<T,N>& array)
+{
+  o << "std::array[";
+  for(std::size_t i = 0 ; i < N ; ++i)
+    o << (i==0?"":",") << array[i];
+  o << "]" /*<< std::endl*/;
+  return o;
+}
+
+#endif
