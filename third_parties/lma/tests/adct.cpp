@@ -158,4 +158,37 @@ int main()
   std::cout << color.red() << " jet  dx,dy,dz = " << d[0] << "," << d[1] << "," << d[2] << "," << r <<  color.reset() << std::endl;
   
 
-  Camera cam; 
+  Camera cam; cam << 0,0,0,10,10,10,10,10,10;
+  Point3d pt; pt << 100,200,150;
+  Point2d obs; obs << 100,100;
+  
+
+  
+  {
+    Eigen::Matrix<double,2,12> jacob;
+    utils::Tic<true> jet_proj("Jet Proj");
+    for(size_t i = 0 ; i < N; ++i)
+      analytical_derivative<ceres::Jet<double,12>>(cam,pt,obs,jacob);
+    jet_proj.disp();
+    std::cout << jacob << std::endl;
+  }
+  
+  {
+    TooN::Matrix<2,12,double> jacob;
+    utils::Tic<true> ad_proj("Ad Proj");
+    for(size_t i = 0 ; i < N; ++i)
+      analytical_derivative2<adct::Ad<double,12>>(cam,pt,obs,jacob);
+    ad_proj.disp();
+    std::cout << jacob << std::endl;
+  }
+//   
+}
+
+#else // #ifdef USE_CERES
+
+int main()
+{
+}
+
+#endif // #ifdef USE_CERES
+
