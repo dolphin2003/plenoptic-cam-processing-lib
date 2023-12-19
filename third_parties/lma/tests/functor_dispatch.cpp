@@ -26,4 +26,6 @@ int main()
   A a;
   B b;
   C c;
-  return
+  return (fun(bf::make_vector(&a,&b,&c),d) && d == 3.159 ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
