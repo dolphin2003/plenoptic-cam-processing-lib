@@ -49,4 +49,59 @@ namespace ttt
     }
   };
 
-  template<> struct Name<A>{ static std::string name
+  template<> struct Name<A>{ static std::string name(){ return "A";}};
+  template<> struct Name<B>{ static std::string name(){ return "B";}};
+  template<> struct Name<C>{ static std::string name(){ return "C";}};
+  template<> struct Name<D>{ static std::string name(){ return "D";}};
+  template<> struct Name<E>{ static std::string name(){ return "E";}};
+  template<> struct Name<F>{ static std::string name(){ return "F";}};
+  template<> struct Name<G>{ static std::string name(){ return "G";}};
+
+}
+
+template<class A, class B> struct Key {};
+template<class A, class B> struct Pair { B second; };
+
+
+template<class X, class State, class Element> struct F1
+{
+
+  template<class Result, class Element2, class Elt>
+  struct F2 { using type = brigand::push_back<Result,brigand::pair<brigand::pair<Element2,Elt>,void>>; };
+
+  using new_list = 
+    brigand::fold<
+                  X,brigand::list<>,
+                  F2<brigand::_state,Element,brigand::_element>
+                 >;
+  using type = brigand::append<State,new_list>;
+};
+
+
+template<class ... X> struct as_map;
+template<class ... X> struct as_map<brigand::list<X...>>
+{
+  using type = brigand::map<X...>;
+};
+
+int main()
+{
+  using All = brigand::list<A,B,C>;
+
+  using Result  = brigand::fold<All,brigand::list<>,F1<All,brigand::_state,brigand::_element>>;
+
+  using Map = typename as_map<Result>::type;
+
+  std::cout << " List : " << ttt::name<All>() << std::endl;
+  std::cout << std::endl;
+  std::cout << " Keys : " << ttt::name<Result>() << std::endl;
+  std::cout << std::endl;
+  std::cout << " Map  : " << ttt::name<Map>() << std::endl;
+  //clement(Map{});
+
+}
+
+#else
+int main() {}
+#endif
+
