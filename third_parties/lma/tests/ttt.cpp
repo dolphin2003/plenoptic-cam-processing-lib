@@ -5,4 +5,6 @@
 
 int main()
 {
-  std::cout << " --> " << ttt::name<boost::mpl::vector<int,char,
+  std::cout << " --> " << ttt::name<boost::mpl::vector<int,char,double>>() << std::endl;
+  return EXIT_SUCCESS;
+}
